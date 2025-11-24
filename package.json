@@ -134,6 +134,7 @@
   "dependencies": {
     "@debugmcp/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.10.2",
+    "@types/pg": "^8.15.6",
     "@types/which": "^3.0.4",
     "@vscode/debugadapter": "^1.68.0",
     "@vscode/debugprotocol": "^1.68.0",
@@ -144,6 +145,7 @@
     "fs-extra": "^11.2.0",
     "lru-cache": "^11.1.0",
     "node-fetch": "^2.7.0",
+    "pg": "^8.16.3",
     "uuid": "^9.0.1",
     "which": "^5.0.0",
     "winston": "^3.11.0",
