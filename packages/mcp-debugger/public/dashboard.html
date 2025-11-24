@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bug Reports Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-gray-800">Bug Reports</h1>
+        
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <table class="min-w-full leading-normal">
+                <thead>
+                    <tr>
+                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            ID
+                        </th>
+                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Severity
+                        </th>
+                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Description
+                        </th>
+                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Context
+                        </th>
+                        <th class="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Created At
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="reports-body">
+                    <!-- Reports will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function loadReports() {
+            // In a real app, we'd fetch from an API. 
+            // For this MVP, we'll assume the server serves this file and has an API endpoint.
+            // Since we don't have a full HTTP server setup for the dashboard yet, 
+            // we'll mock the data loading or require a separate server process.
+            
+            // Placeholder for now
+            const reports = [
+                { id: 1, severity: 'high', description: 'Example bug report', context: { file: 'main.zig', line: 10 }, created_at: new Date().toISOString() }
+            ];
+
+            const tbody = document.getElementById('reports-body');
+            tbody.innerHTML = reports.map(report => `
+                <tr>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <p class="text-gray-900 whitespace-no-wrap">${report.id}</p>
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <span class="relative inline-block px-3 py-1 font-semibold text-${getColor(report.severity)}-900 leading-tight">
+                            <span aria-hidden class="absolute inset-0 bg-${getColor(report.severity)}-200 opacity-50 rounded-full"></span>
+                            <span class="relative">${report.severity}</span>
+                        </span>
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <p class="text-gray-900 whitespace-no-wrap">${report.description}</p>
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <pre class="text-xs text-gray-600">${JSON.stringify(report.context, null, 2)}</pre>
+                    </td>
+                    <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                        <p class="text-gray-900 whitespace-no-wrap">${new Date(report.created_at).toLocaleString()}</p>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getColor(severity) {
+            switch(severity) {
+                case 'critical': return 'red';
+                case 'high': return 'orange';
+                case 'medium': return 'yellow';
+                case 'low': return 'green';
+                default: return 'gray';
+            }
+        }
+
+        loadReports();
+    </script>
+</body>
+</html>

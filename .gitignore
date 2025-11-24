@@ -174,3 +174,5 @@ packages/mcp-debugger/package/
 packages/mcp-debugger/.pack-lock
 packages/mcp-debugger/package.json.backup
 packages/mcp-debugger/package-cache/
+examples/zig-harness/.zig-cache
+examples/zig-harness/zig-out

@@ -1,0 +1,23 @@
+{
+    "name": "@debugmcp/adapter-zig",
+    "version": "0.1.0",
+    "description": "Zig debug adapter for mcp-debugger",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc -b",
+        "clean": "rimraf dist",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@debugmcp/shared": "workspace:*",
+        "@vscode/debugprotocol": "^1.61.0",
+        "zod": "^3.22.4"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.0",
+        "rimraf": "^5.0.5",
+        "typescript": "^5.3.3",
+        "vitest": "^1.2.1"
+    }
+}

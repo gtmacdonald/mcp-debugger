@@ -10,10 +10,11 @@
 import { JavascriptAdapterFactory } from '@debugmcp/adapter-javascript';
 import { PythonAdapterFactory } from '@debugmcp/adapter-python';
 import { MockAdapterFactory } from '@debugmcp/adapter-mock';
+import { ZigAdapterFactory } from '@debugmcp/adapter-zig';
 import type { IAdapterFactory } from '@debugmcp/shared';
 
 interface BundledAdapterEntry {
-  language: 'javascript' | 'python' | 'mock';
+  language: 'javascript' | 'python' | 'mock' | 'zig';
   factoryCtor: new () => IAdapterFactory;
 }
 
@@ -22,7 +23,8 @@ const GLOBAL_KEY = '__DEBUG_MCP_BUNDLED_ADAPTERS__';
 const adapters: BundledAdapterEntry[] = [
   { language: 'javascript', factoryCtor: JavascriptAdapterFactory },
   { language: 'python', factoryCtor: PythonAdapterFactory },
-  { language: 'mock', factoryCtor: MockAdapterFactory }
+  { language: 'mock', factoryCtor: MockAdapterFactory },
+  { language: 'zig', factoryCtor: ZigAdapterFactory }
 ];
 
 const globalAdapters = (globalThis as unknown as Record<string, BundledAdapterEntry[] | undefined>)[GLOBAL_KEY];
@@ -38,4 +40,4 @@ if (Array.isArray(globalAdapters)) {
 }
 
 // Export empty object to make this a valid module
-export {};
+export { };

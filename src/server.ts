@@ -20,13 +20,13 @@ import {
 import { SessionManager, SessionManagerConfig } from './session/session-manager.js';
 import { createProductionDependencies } from './container/dependencies.js';
 import { ContainerConfig } from './container/types.js';
-import { 
-    DebugSessionInfo, 
-    Variable, 
-    StackFrame, 
-    DebugLanguage,
-    Breakpoint,
-    SessionLifecycleState 
+import {
+  DebugSessionInfo,
+  Variable,
+  StackFrame,
+  DebugLanguage,
+  Breakpoint,
+  SessionLifecycleState
 } from '@debugmcp/shared';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import path from 'path';
@@ -211,11 +211,11 @@ export class DebugMcpServer {
     }
     if (!allowInContainer && !supported.includes(requested)) {
       throw new McpError(
-        McpErrorCode.InvalidParams, 
+        McpErrorCode.InvalidParams,
         `Language '${params.language}' is not supported. Available languages: ${supported.join(', ')}`
       );
     }
-    
+
     const name = params.name || `${params.language}-debug-${Date.now()}`;
     try {
       const sessionInfo: DebugSessionInfo = await this.sessionManager.createSession({
@@ -232,30 +232,30 @@ export class DebugMcpServer {
   }
 
   public async startDebugging(
-    sessionId: string, 
-    scriptPath: string, 
-    args?: string[], 
-    dapLaunchArgs?: Partial<DebugProtocol.LaunchRequestArguments>, 
+    sessionId: string,
+    scriptPath: string,
+    args?: string[],
+    dapLaunchArgs?: Partial<DebugProtocol.LaunchRequestArguments>,
     dryRunSpawn?: boolean,
     adapterLaunchConfig?: Record<string, unknown>
   ): Promise<{ success: boolean; state: string; error?: string; data?: unknown; errorType?: string; errorCode?: number; }> {
     this.validateSession(sessionId);
-    
+
     // Check script file exists for immediate feedback
     const fileCheck = await this.fileChecker.checkExists(scriptPath);
     if (!fileCheck.exists) {
-      throw new McpError(McpErrorCode.InvalidParams, 
+      throw new McpError(McpErrorCode.InvalidParams,
         `Script file not found: '${scriptPath}'\nLooked for: '${fileCheck.effectivePath}'${fileCheck.errorMessage ? `\nError: ${fileCheck.errorMessage}` : ''}`);
     }
-    
+
     this.logger.info(`[DebugMcpServer.startDebugging] Script file exists: ${fileCheck.effectivePath} (original: ${scriptPath})`);
-    
+
     // Pass the effective path (which has been resolved for container) to session manager
     const result = await this.sessionManager.startDebugging(
-      sessionId, 
-      fileCheck.effectivePath, 
-      args, 
-      dapLaunchArgs, 
+      sessionId,
+      fileCheck.effectivePath,
+      args,
+      dapLaunchArgs,
       dryRunSpawn,
       adapterLaunchConfig
     );
@@ -268,16 +268,16 @@ export class DebugMcpServer {
 
   public async setBreakpoint(sessionId: string, file: string, line: number, condition?: string): Promise<Breakpoint> {
     this.validateSession(sessionId);
-    
+
     // Check file exists for immediate feedback
     const fileCheck = await this.fileChecker.checkExists(file);
     if (!fileCheck.exists) {
-      throw new McpError(McpErrorCode.InvalidParams, 
+      throw new McpError(McpErrorCode.InvalidParams,
         `Breakpoint file not found: '${file}'\nLooked for: '${fileCheck.effectivePath}'${fileCheck.errorMessage ? `\nError: ${fileCheck.errorMessage}` : ''}`);
     }
-    
+
     this.logger.info(`[DebugMcpServer.setBreakpoint] File exists: ${fileCheck.effectivePath} (original: ${file})`);
-    
+
     // Pass the effective path (which has been resolved for container) to session manager
     return this.sessionManager.setBreakpoint(sessionId, fileCheck.effectivePath, line, condition);
   }
@@ -292,7 +292,7 @@ export class DebugMcpServer {
     const session = this.sessionManager.getSession(sessionId);
     const currentThreadId = session?.proxyManager?.getCurrentThreadId();
     if (!session || !session.proxyManager || typeof currentThreadId !== 'number') {
-        throw new ProxyNotRunningError(sessionId || 'unknown', 'get stack trace');
+      throw new ProxyNotRunningError(sessionId || 'unknown', 'get stack trace');
     }
     return this.sessionManager.getStackTrace(sessionId, currentThreadId, includeInternals);
   }
@@ -349,15 +349,15 @@ export class DebugMcpServer {
 
   constructor(options: DebugMcpServerOptions = {}) {
     this.constructorOptions = options;
-    
+
     const containerConfig: ContainerConfig = {
       logLevel: options.logLevel,
       logFile: options.logFile,
       sessionLogDirBase: options.logFile ? path.resolve(path.dirname(options.logFile), 'sessions') : undefined
     };
-    
+
     const dependencies = createProductionDependencies(containerConfig);
-    
+
     this.logger = dependencies.logger;
     this.logger.info('[DebugMcpServer Constructor] Main server logger instance assigned.');
 
@@ -382,7 +382,7 @@ export class DebugMcpServer {
     const sessionManagerConfig: SessionManagerConfig = {
       logDirBase: containerConfig.sessionLogDirBase
     };
-    
+
     this.sessionManager = new SessionManager(sessionManagerConfig, dependencies);
 
     this.registerTools();
@@ -431,31 +431,32 @@ export class DebugMcpServer {
   private registerTools(): void {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       this.logger.debug('Handling ListToolsRequest');
-      
+
       // Get supported languages dynamically - deferred until request time
       const supportedLanguages = await this.getSupportedLanguagesAsync();
-      
+
       // Generate dynamic descriptions for path parameters
       const fileDescription = this.getPathDescription('source file');
       const scriptPathDescription = this.getPathDescription('script');
-      
+
       return {
         tools: [
-          { name: 'create_debug_session', description: 'Create a new debugging session', inputSchema: { type: 'object', properties: { language: { type: 'string', enum: supportedLanguages, description: 'Programming language for debugging' }, name: { type: 'string', description: 'Optional session name' }, executablePath: {type: 'string', description: 'Path to language executable (optional, will auto-detect if not provided)'} }, required: ['language'] } },
+          { name: 'create_debug_session', description: 'Create a new debugging session', inputSchema: { type: 'object', properties: { language: { type: 'string', enum: supportedLanguages, description: 'Programming language for debugging' }, name: { type: 'string', description: 'Optional session name' }, executablePath: { type: 'string', description: 'Path to language executable (optional, will auto-detect if not provided)' } }, required: ['language'] } },
           { name: 'list_supported_languages', description: 'List all supported debugging languages with metadata', inputSchema: { type: 'object', properties: {} } },
           { name: 'list_debug_sessions', description: 'List all active debugging sessions', inputSchema: { type: 'object', properties: {} } },
           { name: 'set_breakpoint', description: 'Set a breakpoint. Setting breakpoints on non-executable lines (structural, declarative) may lead to unexpected behavior', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, file: { type: 'string', description: fileDescription }, line: { type: 'number', description: 'Line number where to set breakpoint. Executable statements (assignments, function calls, conditionals, returns) work best. Structural lines (function/class definitions), declarative lines (imports), or non-executable lines (comments, blank lines) may cause unexpected stepping behavior' }, condition: { type: 'string' } }, required: ['sessionId', 'file', 'line'] } },
-          { name: 'start_debugging', description: 'Start debugging a script', inputSchema: { 
-              type: 'object', 
-              properties: { 
-                sessionId: { type: 'string' }, 
-                scriptPath: { type: 'string', description: scriptPathDescription }, 
-                args: { type: 'array', items: { type: 'string' } }, 
-                dapLaunchArgs: { 
-                  type: 'object', 
-                  properties: { 
+          {
+            name: 'start_debugging', description: 'Start debugging a script', inputSchema: {
+              type: 'object',
+              properties: {
+                sessionId: { type: 'string' },
+                scriptPath: { type: 'string', description: scriptPathDescription },
+                args: { type: 'array', items: { type: 'string' } },
+                dapLaunchArgs: {
+                  type: 'object',
+                  properties: {
                     stopOnEntry: { type: 'boolean' },
-                    justMyCode: { type: 'boolean' } 
+                    justMyCode: { type: 'boolean' }
                   },
                   additionalProperties: true
                 },
@@ -465,9 +466,9 @@ export class DebugMcpServer {
                   description: 'Optional adapter-specific launch configuration overrides',
                   additionalProperties: true
                 }
-              }, 
-              required: ['sessionId', 'scriptPath'] 
-            } 
+              },
+              required: ['sessionId', 'scriptPath']
+            }
           },
           { name: 'close_debug_session', description: 'Close a debugging session', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' } }, required: ['sessionId'] } },
           { name: 'step_over', description: 'Step over', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' } }, required: ['sessionId'] } },
@@ -481,6 +482,7 @@ export class DebugMcpServer {
           { name: 'get_scopes', description: 'Get scopes for a stack frame', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, frameId: { type: 'number', description: "The ID of the stack frame from a stackTrace response" } }, required: ['sessionId', 'frameId'] } },
           { name: 'evaluate_expression', description: 'Evaluate expression in the current debug context. Expressions can read and modify program state', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, expression: { type: 'string' }, frameId: { type: 'number', description: 'Optional stack frame ID for evaluation context. Must be a frame ID from a get_stack_trace response. If not provided, uses the current (top) frame automatically' } }, required: ['sessionId', 'expression'] } },
           { name: 'get_source_context', description: 'Get source context around a specific line in a file', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, file: { type: 'string', description: fileDescription }, line: { type: 'number', description: 'Line number to get context for' }, linesContext: { type: 'number', description: 'Number of lines before and after to include (default: 5)' } }, required: ['sessionId', 'file', 'line'] } },
+          { name: 'report_bug', description: 'Report a bug encountered during debugging', inputSchema: { type: 'object', properties: { severity: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] }, description: { type: 'string' }, context: { type: 'object', additionalProperties: true } }, required: ['severity', 'description'] } },
         ],
       };
     });
@@ -489,7 +491,7 @@ export class DebugMcpServer {
       CallToolRequestSchema,
       async (request): Promise<ServerResult> => {
         const toolName = request.params.name;
-        const args = request.params.arguments as ToolArguments; 
+        const args = request.params.arguments as ToolArguments;
 
         // Log tool call with structured logging
         this.logger.info('tool:call', {
@@ -502,7 +504,7 @@ export class DebugMcpServer {
 
         try {
           let result: ServerResult;
-          
+
           switch (toolName) {
             case 'create_debug_session': {
               // Ensure requested language is among dynamically supported ones
@@ -520,7 +522,7 @@ export class DebugMcpServer {
                 name: args.name,
                 executablePath: args.executablePath
               });
-              
+
               // Log session creation
               this.logger.info('session:created', {
                 sessionId: sessionInfo.id,
@@ -529,7 +531,7 @@ export class DebugMcpServer {
                 executablePath: args.executablePath,
                 timestamp: Date.now()
               });
-              
+
               result = { content: [{ type: 'text', text: JSON.stringify({ success: true, sessionId: sessionInfo.id, message: `Created ${sessionInfo.language} debug session: ${sessionInfo.name}` }) }] };
               break;
             }
@@ -541,10 +543,10 @@ export class DebugMcpServer {
               if (!args.sessionId || !args.file || args.line === undefined) {
                 throw new McpError(McpErrorCode.InvalidParams, 'Missing required parameters');
               }
-              
+
               try {
                 const breakpoint = await this.setBreakpoint(args.sessionId, args.file, args.line, args.condition);
-                
+
                 // Log breakpoint event
                 this.logger.info('debug:breakpoint', {
                   event: 'set',
@@ -556,7 +558,7 @@ export class DebugMcpServer {
                   verified: breakpoint.verified,
                   timestamp: Date.now()
                 });
-                
+
                 // Try to get line context for the breakpoint
                 let context;
                 try {
@@ -565,7 +567,7 @@ export class DebugMcpServer {
                     breakpoint.line,
                     { contextLines: 2 }
                   );
-                  
+
                   if (lineContext) {
                     context = {
                       lineContent: lineContext.lineContent,
@@ -574,25 +576,29 @@ export class DebugMcpServer {
                   }
                 } catch (contextError) {
                   // Log but don't fail if we can't get context
-                  this.logger.debug('Could not get line context for breakpoint', { 
-                    file: breakpoint.file, 
-                    line: breakpoint.line, 
-                    error: contextError 
+                  this.logger.debug('Could not get line context for breakpoint', {
+                    file: breakpoint.file,
+                    line: breakpoint.line,
+                    error: contextError
                   });
                 }
-                
-                result = { content: [{ type: 'text', text: JSON.stringify({ 
-                  success: true, 
-                  breakpointId: breakpoint.id, 
-                  file: breakpoint.file, 
-                  line: breakpoint.line, 
-                  verified: breakpoint.verified, 
-                  message: breakpoint.message || `Breakpoint set at ${breakpoint.file}:${breakpoint.line}`,
-                  // Only add warning if there's a message from debugpy (indicating a problem)
-                  warning: breakpoint.message || undefined,
-                  // Include context if available
-                  context: context || undefined
-                }) }] };
+
+                result = {
+                  content: [{
+                    type: 'text', text: JSON.stringify({
+                      success: true,
+                      breakpointId: breakpoint.id,
+                      file: breakpoint.file,
+                      line: breakpoint.line,
+                      verified: breakpoint.verified,
+                      message: breakpoint.message || `Breakpoint set at ${breakpoint.file}:${breakpoint.line}`,
+                      // Only add warning if there's a message from debugpy (indicating a problem)
+                      warning: breakpoint.message || undefined,
+                      // Include context if available
+                      context: context || undefined
+                    })
+                  }]
+                };
                 const contentEntry = Array.isArray(result.content) ? result.content[0] : undefined;
                 const textContent = contentEntry && typeof (contentEntry as { text?: unknown }).text === 'string'
                   ? (contentEntry as { text: string }).text
@@ -611,10 +617,10 @@ export class DebugMcpServer {
                 });
               } catch (error) {
                 // Handle session state errors specifically
-                if (error instanceof McpError && 
-                    (error.message.includes('terminated') || 
-                     error.message.includes('closed') || 
-                     (error.message.includes('not found') && error.message.includes('Session')))) {
+                if (error instanceof McpError &&
+                  (error.message.includes('terminated') ||
+                    error.message.includes('closed') ||
+                    (error.message.includes('not found') && error.message.includes('Session')))) {
                   result = { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }) }] };
                 } else {
                   // Re-throw all other errors (including file validation errors)
@@ -627,7 +633,7 @@ export class DebugMcpServer {
               if (!args.sessionId || !args.scriptPath) {
                 throw new McpError(McpErrorCode.InvalidParams, 'Missing required parameters');
               }
-              
+
               try {
                 if (args.adapterLaunchConfig !== undefined) {
                   const cfg = args.adapterLaunchConfig;
@@ -655,10 +661,10 @@ export class DebugMcpServer {
                 result = { content: [{ type: 'text', text: JSON.stringify(responsePayload) }] };
               } catch (error) {
                 // Handle session state errors specifically
-                if (error instanceof McpError && 
-                    (error.message.includes('terminated') || 
-                     error.message.includes('closed') || 
-                     (error.message.includes('not found') && error.message.includes('Session')))) {
+                if (error instanceof McpError &&
+                  (error.message.includes('terminated') ||
+                    error.message.includes('closed') ||
+                    (error.message.includes('not found') && error.message.includes('Session')))) {
                   result = { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message, state: 'stopped' }) }] };
                 } else {
                   // Re-throw all other errors (including file validation errors)
@@ -671,11 +677,11 @@ export class DebugMcpServer {
               if (!args.sessionId) {
                 throw new McpError(McpErrorCode.InvalidParams, 'Missing required sessionId');
               }
-              
+
               const sessionName = this.getSessionName(args.sessionId);
               const sessionCreatedAt = Date.now(); // In real implementation, would track creation time
               const closed = await this.closeDebugSession(args.sessionId);
-              
+
               if (closed) {
                 // Log session closure
                 this.logger.info('session:closed', {
@@ -685,7 +691,7 @@ export class DebugMcpServer {
                   timestamp: Date.now()
                 });
               }
-              
+
               result = { content: [{ type: 'text', text: JSON.stringify({ success: closed, message: closed ? `Closed debug session: ${args.sessionId}` : `Failed to close debug session: ${args.sessionId}` }) }] };
               break;
             }
@@ -749,8 +755,8 @@ export class DebugMcpServer {
               } catch (error) {
                 // Handle validation errors specifically
                 if (error instanceof SessionTerminatedError ||
-                    error instanceof SessionNotFoundError ||
-                    error instanceof ProxyNotRunningError) {
+                  error instanceof SessionNotFoundError ||
+                  error instanceof ProxyNotRunningError) {
                   result = { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }) }] };
                 } else if (error instanceof Error) {
                   // Handle other expected errors (like "Failed to step over")
@@ -766,15 +772,15 @@ export class DebugMcpServer {
               if (!args.sessionId) {
                 throw new McpError(McpErrorCode.InvalidParams, 'Missing required sessionId');
               }
-              
+
               try {
                 const continueResult = await this.continueExecution(args.sessionId);
                 result = { content: [{ type: 'text', text: JSON.stringify({ success: continueResult, message: continueResult ? 'Continued execution' : 'Failed to continue execution' }) }] };
               } catch (error) {
                 // Handle validation errors specifically
                 if (error instanceof SessionTerminatedError ||
-                    error instanceof SessionNotFoundError ||
-                    error instanceof ProxyNotRunningError) {
+                  error instanceof SessionNotFoundError ||
+                  error instanceof ProxyNotRunningError) {
                   result = { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }) }] };
                 } else if (error instanceof Error) {
                   // Handle other expected errors
@@ -790,21 +796,26 @@ export class DebugMcpServer {
               result = await this.handlePause(args as { sessionId: string });
               break;
             }
+            case 'report_bug': {
+              const { reportBugTool } = await import('./tools/report_bug.js');
+              result = await reportBugTool.handler(args as any);
+              break;
+            }
             case 'get_variables': {
               if (!args.sessionId || args.scope === undefined) {
                 throw new McpError(McpErrorCode.InvalidParams, 'Missing required parameters');
               }
-              
+
               try {
                 const variables = await this.getVariables(args.sessionId, args.scope);
-                
+
                 // Log variable inspection (truncate large values)
                 const truncatedVars = variables.map(v => ({
                   name: v.name,
                   type: v.type,
                   value: v.value.length > 200 ? v.value.substring(0, 200) + '... (truncated)' : v.value
                 }));
-                
+
                 this.logger.info('debug:variables', {
                   sessionId: args.sessionId,
                   sessionName: this.getSessionName(args.sessionId),
@@ -813,13 +824,13 @@ export class DebugMcpServer {
                   variables: truncatedVars.slice(0, 10), // Log first 10 variables
                   timestamp: Date.now()
                 });
-                
+
                 result = { content: [{ type: 'text', text: JSON.stringify({ success: true, variables, count: variables.length, variablesReference: args.scope }) }] };
               } catch (error) {
                 // Handle validation errors specifically
                 if (error instanceof SessionTerminatedError ||
-                    error instanceof SessionNotFoundError ||
-                    error instanceof ProxyNotRunningError) {
+                  error instanceof SessionNotFoundError ||
+                  error instanceof ProxyNotRunningError) {
                   result = { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }) }] };
                 } else {
                   // Re-throw unexpected errors
@@ -832,7 +843,7 @@ export class DebugMcpServer {
               if (!args.sessionId) {
                 throw new McpError(McpErrorCode.InvalidParams, 'Missing required sessionId');
               }
-              
+
               try {
                 // Default to false for cleaner output
                 const includeInternals = args.includeInternals ?? false;
@@ -841,8 +852,8 @@ export class DebugMcpServer {
               } catch (error) {
                 // Handle validation errors specifically
                 if (error instanceof SessionTerminatedError ||
-                    error instanceof SessionNotFoundError ||
-                    error instanceof ProxyNotRunningError) {
+                  error instanceof SessionNotFoundError ||
+                  error instanceof ProxyNotRunningError) {
                   result = { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }) }] };
                 } else {
                   // Re-throw unexpected errors
@@ -855,15 +866,15 @@ export class DebugMcpServer {
               if (!args.sessionId || args.frameId === undefined) {
                 throw new McpError(McpErrorCode.InvalidParams, 'Missing required parameters');
               }
-              
+
               try {
                 const scopes = await this.getScopes(args.sessionId, args.frameId);
                 result = { content: [{ type: 'text', text: JSON.stringify({ success: true, scopes }) }] };
               } catch (error) {
                 // Handle validation errors specifically
                 if (error instanceof SessionTerminatedError ||
-                    error instanceof SessionNotFoundError ||
-                    error instanceof ProxyNotRunningError) {
+                  error instanceof SessionNotFoundError ||
+                  error instanceof ProxyNotRunningError) {
                   result = { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }) }] };
                 } else {
                   // Re-throw unexpected errors
@@ -891,7 +902,7 @@ export class DebugMcpServer {
             default:
               throw new McpError(McpErrorCode.MethodNotFound, `Unknown tool: ${toolName}`);
           }
-          
+
           // Log successful tool response
           this.logger.info('tool:response', {
             tool: toolName,
@@ -900,11 +911,11 @@ export class DebugMcpServer {
             success: true,
             timestamp: Date.now()
           });
-          
+
           return result;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          
+
           // Log tool error
           this.logger.error('tool:error', {
             tool: toolName,
@@ -913,7 +924,7 @@ export class DebugMcpServer {
             error: errorMessage,
             timestamp: Date.now()
           });
-          
+
           if (error instanceof McpError) throw error;
           throw new McpError(McpErrorCode.InternalError, `Failed to execute tool ${toolName}: ${errorMessage}`);
         }
@@ -925,15 +936,15 @@ export class DebugMcpServer {
     try {
       const sessionsInfo: DebugSessionInfo[] = this.sessionManager.getAllSessions();
       const sessionData = sessionsInfo.map((session: DebugSessionInfo) => {
-        const mappedSession: Record<string, unknown> = { 
-            id: session.id, 
-            name: session.name, 
-            language: session.language as DebugLanguage, 
-            state: session.state, 
-            createdAt: session.createdAt.toISOString(),
+        const mappedSession: Record<string, unknown> = {
+          id: session.id,
+          name: session.name,
+          language: session.language as DebugLanguage,
+          state: session.state,
+          createdAt: session.createdAt.toISOString(),
         };
-        if (session.updatedAt) { 
-            mappedSession.updatedAt = session.updatedAt.toISOString();
+        if (session.updatedAt) {
+          mappedSession.updatedAt = session.updatedAt.toISOString();
         }
         return mappedSession;
       });
@@ -959,12 +970,12 @@ export class DebugMcpServer {
     try {
       // Validate session
       this.validateSession(args.sessionId);
-      
+
       // Check expression length (sanity check)
       if (args.expression.length > 10240) {
         throw new McpError(McpErrorCode.InvalidParams, 'Expression too long (max 10KB)');
       }
-      
+
       // Call SessionManager's evaluateExpression method (uses 'watch' context by default for variable access)
       const result = await this.sessionManager.evaluateExpression(
         args.sessionId,
@@ -972,7 +983,7 @@ export class DebugMcpServer {
         args.frameId
         // Let SessionManager use its default context ('watch') for proper variable access
       );
-      
+
       // Log for audit trail
       this.logger.info('tool:evaluate_expression', {
         sessionId: args.sessionId,
@@ -982,17 +993,17 @@ export class DebugMcpServer {
         hasResult: !!result.result,
         timestamp: Date.now()
       });
-      
+
       // Return formatted response
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify(result) 
-        }] 
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(result)
+        }]
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       // Log the error
       this.logger.error('tool:evaluate_expression:error', {
         sessionId: args.sessionId,
@@ -1000,13 +1011,13 @@ export class DebugMcpServer {
         error: errorMessage,
         timestamp: Date.now()
       });
-      
+
       // Handle session state errors specifically
-      if (error instanceof McpError && 
-          (error.message.includes('terminated') || 
-           error.message.includes('closed') || 
-           error.message.includes('not found') ||
-           error.message.includes('not paused'))) {
+      if (error instanceof McpError &&
+        (error.message.includes('terminated') ||
+          error.message.includes('closed') ||
+          error.message.includes('not found') ||
+          error.message.includes('not paused'))) {
         return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }) }] };
       } else if (error instanceof McpError) {
         throw error;
@@ -1021,16 +1032,16 @@ export class DebugMcpServer {
     try {
       // Validate session
       this.validateSession(args.sessionId);
-      
+
       // Check file exists for immediate feedback
       const fileCheck = await this.fileChecker.checkExists(args.file);
       if (!fileCheck.exists) {
-        throw new McpError(McpErrorCode.InvalidParams, 
+        throw new McpError(McpErrorCode.InvalidParams,
           `Line context file not found: '${args.file}'\nLooked for: '${fileCheck.effectivePath}'${fileCheck.errorMessage ? `\nError: ${fileCheck.errorMessage}` : ''}`);
       }
-      
+
       this.logger.info(`Source context requested for session: ${args.sessionId}, file: ${fileCheck.effectivePath}, line: ${args.line}`);
-      
+
       // Get line context using the line reader
       const contextLines = args.linesContext ?? 5; // Default to 5 lines of context
       const lineContext = await this.lineReader.getLineContext(
@@ -1038,22 +1049,22 @@ export class DebugMcpServer {
         args.line,
         { contextLines }
       );
-      
+
       if (!lineContext) {
         // File might be binary or unreadable
-        return { 
-          content: [{ 
-            type: 'text', 
-            text: JSON.stringify({ 
-              success: false, 
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
               error: 'Could not read source context. File may be binary or inaccessible.',
               file: args.file,
               line: args.line
-            }) 
-          }] 
+            })
+          }]
         };
       }
-      
+
       // Log source context request
       this.logger.info('debug:source_context', {
         sessionId: args.sessionId,
@@ -1063,19 +1074,19 @@ export class DebugMcpServer {
         contextLines: contextLines,
         timestamp: Date.now()
       });
-      
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify({ 
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
             success: true,
             file: args.file,
             line: args.line,
             lineContent: lineContext.lineContent,
             surrounding: lineContext.surrounding,
             contextLines: contextLines
-          }) 
-        }] 
+          })
+        }]
       };
     } catch (error) {
       this.logger.error('Failed to get source context', { error });
@@ -1088,13 +1099,13 @@ export class DebugMcpServer {
     try {
       // Validate session
       this.validateSession(args.sessionId);
-      
+
       // Get local variables using the new convenience method
       const result = await this.getLocalVariables(
         args.sessionId,
         args.includeSpecial ?? false
       );
-      
+
       // Log for debugging
       this.logger.info('tool:get_local_variables', {
         sessionId: args.sessionId,
@@ -1105,24 +1116,24 @@ export class DebugMcpServer {
         scopeName: result.scopeName,
         timestamp: Date.now()
       });
-      
+
       // Format response
       const response: Record<string, unknown> = {
         success: true,
         variables: result.variables,
         count: result.variables.length
       };
-      
+
       // Include frame information if available
       if (result.frame) {
         response.frame = result.frame;
       }
-      
+
       // Include scope name if available
       if (result.scopeName) {
         response.scopeName = result.scopeName;
       }
-      
+
       // Add helpful messages for edge cases
       if (result.variables.length === 0) {
         if (!result.frame) {
@@ -1133,34 +1144,38 @@ export class DebugMcpServer {
           response.message = `The ${result.scopeName} scope is empty.`;
         }
       }
-      
-      return { 
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify(response) 
-        }] 
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(response)
+        }]
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       // Log the error
       this.logger.error('tool:get_local_variables:error', {
         sessionId: args.sessionId,
         error: errorMessage,
         timestamp: Date.now()
       });
-      
+
       // Handle session state errors specifically
-      if (error instanceof McpError && 
-          (error.message.includes('terminated') || 
-           error.message.includes('closed') || 
-           error.message.includes('not found') ||
-           error.message.includes('not paused'))) {
-        return { content: [{ type: 'text', text: JSON.stringify({ 
-          success: false, 
-          error: error.message,
-          message: 'Cannot get local variables. The session must be paused at a breakpoint.'
-        }) }] };
+      if (error instanceof McpError &&
+        (error.message.includes('terminated') ||
+          error.message.includes('closed') ||
+          error.message.includes('not found') ||
+          error.message.includes('not paused'))) {
+        return {
+          content: [{
+            type: 'text', text: JSON.stringify({
+              success: false,
+              error: error.message,
+              message: 'Cannot get local variables. The session must be paused at a breakpoint.'
+            })
+          }]
+        };
       } else if (error instanceof McpError) {
         throw error;
       } else {
@@ -1186,30 +1201,34 @@ export class DebugMcpServer {
       if (adapterRegistry) {
         const dyn = adapterRegistry as unknown as { listAvailableAdapters?: () => Promise<Array<{ name: string; packageName: string; description?: string; installed: boolean }>> };
         if (typeof dyn.listAvailableAdapters === 'function') {
-        try {
-          const meta = await dyn.listAvailableAdapters!();
-          available = meta.map(m => ({
-            language: m.name,
-            package: m.packageName,
-            installed: m.installed,
-            description: m.description
-          }));
-        } catch (e) {
-          this.logger.warn('Failed to query detailed adapter metadata; returning installed list only', { error: (e as Error)?.message });
+          try {
+            const meta = await dyn.listAvailableAdapters!();
+            available = meta.map(m => ({
+              language: m.name,
+              package: m.packageName,
+              installed: m.installed,
+              description: m.description
+            }));
+          } catch (e) {
+            this.logger.warn('Failed to query detailed adapter metadata; returning installed list only', { error: (e as Error)?.message });
+          }
         }
-      }
       }
 
       // Also build simple metadata array for backward compatibility with previous payload shape
       const languageMetadata = await this.getLanguageMetadata();
 
-      return { content: [{ type: 'text', text: JSON.stringify({
-        success: true,
-        installed,
-        available,
-        languages: languageMetadata, // backward-compatible field with display info
-        count: installed.length
-      }) }] };
+      return {
+        content: [{
+          type: 'text', text: JSON.stringify({
+            success: true,
+            installed,
+            available,
+            languages: languageMetadata, // backward-compatible field with display info
+            count: installed.length
+          })
+        }]
+      };
     } catch (error) {
       this.logger.error('Failed to list supported languages', { error });
       throw new McpError(McpErrorCode.InternalError, `Failed to list supported languages: ${(error as Error).message}`);
