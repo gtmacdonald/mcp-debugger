@@ -71,7 +71,7 @@ describe('Python Discovery - Real Implementation Test @requires-python', () => {
     // This test MUST NOT mock Python discovery
     // It should use the real findPythonExecutable function
     // On Windows, this should find 'py' or 'python' (not 'python3' which is often Microsoft Store)
-    
+
     if (!client) {
       throw new Error("Client not initialized");
     }
@@ -88,16 +88,16 @@ describe('Python Discovery - Real Implementation Test @requires-python', () => {
     // Create a debug session without specifying pythonPath
     // This forces the server to use Python discovery
     const createResult = parseToolResult(
-      await client.callTool({ 
-        name: 'create_debug_session', 
-        arguments: { 
-          language: 'python', 
+      await client.callTool({
+        name: 'create_debug_session',
+        arguments: {
+          language: 'python',
           name: 'PythonDiscoveryTest'
           // NOTE: No pythonPath specified - must rely on discovery
-        } 
+        }
       })
     );
-    
+
     expect(createResult.success).toBe(true);
     const sessionId = createResult.sessionId;
     console.log(`[Test] Created session: ${sessionId}`);
@@ -125,11 +125,11 @@ describe('Python Discovery - Real Implementation Test @requires-python', () => {
     // This should succeed if Python discovery works correctly
     expect(startResult.success).toBe(true);
     expect(startResult.data?.dryRun).toBe(true);
-    
+
     // Clean up
-    await client.callTool({ 
-      name: 'close_debug_session', 
-      arguments: { sessionId } 
+    await client.callTool({
+      name: 'close_debug_session',
+      arguments: { sessionId }
     });
   });
 

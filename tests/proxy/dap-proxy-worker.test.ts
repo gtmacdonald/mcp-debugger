@@ -6,7 +6,7 @@
 import { EventEmitter } from 'events';
 import type { ChildProcess } from 'child_process';
 import path from 'path';
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { DapProxyWorker } from '../../src/proxy/dap-proxy-worker.js';
 import { GenericAdapterManager } from '../../src/proxy/dap-proxy-adapter-manager.js';
 import { DapConnectionManager } from '../../src/proxy/dap-proxy-connection-manager.js';
@@ -24,10 +24,11 @@ import type {
 } from '../../src/proxy/dap-proxy-interfaces.js';
 import { ProxyState } from '../../src/proxy/dap-proxy-interfaces.js';
 import type { AdapterPolicy } from '@debugmcp/shared';
-import { 
+import {
   DefaultAdapterPolicy,
   JsDebugAdapterPolicy,
-  PythonAdapterPolicy
+  PythonAdapterPolicy,
+  ZigAdapterPolicy
 } from '@debugmcp/shared';
 
 // Mock implementations
@@ -79,7 +80,7 @@ describe('DapProxyWorker', () => {
     mockLogger = createMockLogger();
     mockDapClient = createMockDapClient();
     mockMessageSender = createMockMessageSender();
-    
+
     dependencies = {
       fileSystem: createMockFileSystem(),
       loggerFactory: vi.fn().mockResolvedValue(mockLogger),
@@ -89,7 +90,7 @@ describe('DapProxyWorker', () => {
       },
       messageSender: mockMessageSender
     };
-    
+
     worker = new DapProxyWorker(dependencies);
   });
 
@@ -118,11 +119,11 @@ describe('DapProxyWorker', () => {
 
     it('should transition to INITIALIZING on init command', async () => {
       vi.useFakeTimers();
-      
+
       // Use worker with mocked exit hook to prevent process.exit
       const exitSpy = vi.fn();
       worker = new DapProxyWorker(dependencies, { exit: exitSpy });
-      
+
       const payload: ProxyInitPayload = {
         cmd: 'init',
         sessionId: 'test-session',
@@ -141,12 +142,12 @@ describe('DapProxyWorker', () => {
       await worker.handleCommand(payload);
 
       expect(worker.getState()).toBe(ProxyState.TERMINATED); // Dry run ends in TERMINATED
-      
+
       // Exit hook will be called after a delay due to Windows IPC fix
       // Dry run with missing adapter command exits with code 1
       await vi.advanceTimersByTimeAsync(150);
       expect(exitSpy).toHaveBeenCalledWith(1);
-      
+
       vi.useRealTimers();
     });
   });
@@ -156,7 +157,7 @@ describe('DapProxyWorker', () => {
       // Use worker with mocked exit hook to prevent process.exit
       const exitSpy = vi.fn();
       worker = new DapProxyWorker(dependencies, { exit: exitSpy });
-      
+
       const payload: ProxyInitPayload = {
         cmd: 'init',
         sessionId: 'test-session',
@@ -181,7 +182,7 @@ describe('DapProxyWorker', () => {
       // Use worker with mocked exit hook to prevent process.exit
       const exitSpy = vi.fn();
       worker = new DapProxyWorker(dependencies, { exit: exitSpy });
-      
+
       const payload: ProxyInitPayload = {
         cmd: 'init',
         sessionId: 'test-session',
@@ -208,7 +209,7 @@ describe('DapProxyWorker', () => {
       // Use worker with mocked exit hook to prevent process.exit
       const exitSpy = vi.fn();
       worker = new DapProxyWorker(dependencies, { exit: exitSpy });
-      
+
       const payload: ProxyInitPayload = {
         cmd: 'init',
         sessionId: 'test-session',
@@ -230,6 +231,33 @@ describe('DapProxyWorker', () => {
         expect.stringContaining('[Worker] Using adapter policy: python')
       );
     });
+
+    it('should select Zig policy for lldb-dap adapter', async () => {
+      // Use worker with mocked exit hook to prevent process.exit
+      const exitSpy = vi.fn();
+      worker = new DapProxyWorker(dependencies, { exit: exitSpy });
+
+      const payload: ProxyInitPayload = {
+        cmd: 'init',
+        sessionId: 'test-session',
+        scriptPath: '/path/to/main.zig',
+        adapterHost: 'localhost',
+        adapterPort: 5678,
+        logDir: '/logs',
+        executablePath: 'zig',
+        adapterCommand: {
+          command: 'lldb-dap',
+          args: []
+        },
+        dryRunSpawn: true
+      };
+
+      await worker.handleCommand(payload);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('[Worker] Using adapter policy: zig')
+      );
+    });
   });
 
   describe('Dry Run Mode', () => {
@@ -237,7 +265,7 @@ describe('DapProxyWorker', () => {
       // Use worker with mocked exit hook to prevent process.exit
       const exitSpy = vi.fn();
       worker = new DapProxyWorker(dependencies, { exit: exitSpy });
-      
+
       const payload: ProxyInitPayload = {
         cmd: 'init',
         sessionId: 'test-session',
@@ -260,6 +288,37 @@ describe('DapProxyWorker', () => {
           type: 'status',
           status: 'dry_run_complete',
           command: 'python -m debugpy.adapter --port 5678'
+        })
+      );
+    });
+
+    it('should execute dry run for Zig adapter', async () => {
+      // Use worker with mocked exit hook to prevent process.exit
+      const exitSpy = vi.fn();
+      worker = new DapProxyWorker(dependencies, { exit: exitSpy });
+
+      const payload: ProxyInitPayload = {
+        cmd: 'init',
+        sessionId: 'test-session',
+        scriptPath: '/path/to/main.zig',
+        adapterHost: 'localhost',
+        adapterPort: 5678,
+        logDir: '/logs',
+        executablePath: 'zig',
+        adapterCommand: {
+          command: 'lldb-dap',
+          args: ['--connection', 'listen://localhost:5678']
+        },
+        dryRunSpawn: true
+      };
+
+      await worker.handleCommand(payload);
+
+      expect(mockMessageSender.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'status',
+          status: 'dry_run_complete',
+          command: expect.stringContaining('lldb-dap')
         })
       );
     });
@@ -304,7 +363,7 @@ describe('DapProxyWorker', () => {
 
     it('uses custom trace file factory during initialization', async () => {
       vi.useFakeTimers();
-      
+
       const previousTrace = process.env.DAP_TRACE_FILE;
       const exitSpy = vi.fn();
       const traceSpy = vi.fn().mockImplementation((_sessionId: string, logDir: string) => {
@@ -330,7 +389,7 @@ describe('DapProxyWorker', () => {
       } else {
         process.env.DAP_TRACE_FILE = previousTrace;
       }
-      
+
       vi.useRealTimers();
     });
 
@@ -355,7 +414,7 @@ describe('DapProxyWorker', () => {
 
     it('does not trigger exit hook during successful dry run', async () => {
       vi.useFakeTimers();
-      
+
       const exitSpy = vi.fn();
       worker = new DapProxyWorker(dependencies, {
         exit: exitSpy
@@ -366,9 +425,9 @@ describe('DapProxyWorker', () => {
       // The Windows IPC fix will schedule an exit after 100ms
       // Clear timers to prevent it from firing in later tests
       vi.clearAllTimers();
-      
+
       expect(exitSpy).not.toHaveBeenCalled();
-      
+
       vi.useRealTimers();
     });
   });
@@ -376,11 +435,11 @@ describe('DapProxyWorker', () => {
   describe('Adapter workflow internals', () => {
     // Store reference to current worker for cleanup
     let currentWorker: DapProxyWorker;
-    
+
     beforeEach(() => {
       currentWorker = worker;
     });
-    
+
     afterEach(async () => {
       // Clean up the current worker instance, not the original
       if (currentWorker && currentWorker !== worker && currentWorker.getState) {
@@ -394,7 +453,7 @@ describe('DapProxyWorker', () => {
         }
       }
     });
-    
+
     it('startDebugpyAdapterAndConnect should emit adapter_connected for queueing policy', async () => {
       const payload: ProxyInitPayload = {
         cmd: 'init',
@@ -537,12 +596,12 @@ describe('DapProxyWorker', () => {
 
     it('ensureInitialStop logs warning when no threads appear', async () => {
       vi.useFakeTimers();
-      
+
       // Create worker with mocked exit hook to prevent test termination
       const exitSpy = vi.fn();
       const testWorker = new DapProxyWorker(dependencies, { exit: exitSpy });
       currentWorker = testWorker; // Track for cleanup
-      
+
       (testWorker as any).dapClient = mockDapClient;
       (testWorker as any).logger = mockLogger;
       const sendRequestMock = mockDapClient.sendRequest as Mock;
@@ -562,7 +621,7 @@ describe('DapProxyWorker', () => {
         expect.stringContaining('ensureInitialStop: no threads discovered within timeout')
       );
       expect(sendRequestMock).toHaveBeenCalledWith('threads', {});
-      
+
       // Verify that exit was not called during this test
       expect(exitSpy).not.toHaveBeenCalled();
 
@@ -707,7 +766,7 @@ describe('DapProxyWorker', () => {
         },
         dryRunSpawn: true  // Use dry run to avoid connection
       };
-      
+
       await worker.handleCommand(initPayload);
 
       // Reset state to allow DAP commands (but still not connected)
@@ -737,16 +796,16 @@ describe('DapProxyWorker', () => {
     it('should reject commands when shutting down', async () => {
       // Create a new worker and manually set it up in a connected state
       const testWorker = new DapProxyWorker(dependencies);
-      
+
       // Manually set up the worker state
       (testWorker as any).state = ProxyState.CONNECTED;
       (testWorker as any).dapClient = mockDapClient;
       (testWorker as any).logger = mockLogger;
       (testWorker as any).currentSessionId = 'test-session';
-      
+
       // Now terminate it
       await testWorker.handleTerminate();
-      
+
       // Verify it's in TERMINATED state
       expect(testWorker.getState()).toBe(ProxyState.TERMINATED);
 
@@ -760,7 +819,7 @@ describe('DapProxyWorker', () => {
 
       // Clear previous calls
       mockMessageSender.send.mockClear();
-      
+
       await testWorker.handleCommand(dapPayload);
 
       // The worker should reject with "DAP client not connected" since it's terminated
@@ -812,7 +871,7 @@ describe('DapProxyWorker', () => {
     it('should queue commands for JavaScript adapter', async () => {
       // Create a new worker for JS testing
       let jsWorker = new DapProxyWorker(dependencies);
-      
+
       const initPayload: ProxyInitPayload = {
         cmd: 'init',
         sessionId: 'test-session',
@@ -830,7 +889,7 @@ describe('DapProxyWorker', () => {
 
       // Initialize with JS adapter
       await jsWorker.handleCommand(initPayload);
-      
+
       // Create a fresh worker in initialized state but not connected
       jsWorker = new DapProxyWorker(dependencies);
       // Set up JavaScript policy detection
@@ -847,17 +906,17 @@ describe('DapProxyWorker', () => {
           args: ['vendor/js-debug/vsDebugServer.js']
         }
       };
-      
+
       // Mock process.exit to avoid test termination
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
-      
+
       try {
         // This will fail to connect but will set up JS policy
         await jsWorker.handleCommand(jsInitPayload);
       } catch {
         // Expected to fail - that's okay
       }
-      
+
       // Restore process.exit
       exitSpy.mockRestore();
 
@@ -875,7 +934,7 @@ describe('DapProxyWorker', () => {
       const responses = mockMessageSender.send.mock.calls.filter(
         call => call[0].type === 'dapResponse' && call[0].requestId === 'req-3'
       );
-      
+
       // In the current implementation, without proper connection, it may reject
       // This test mainly verifies the JS adapter policy is selected and working
       // The actual queueing behavior depends on connection state
@@ -1019,7 +1078,7 @@ describe('DapProxyWorker', () => {
       // Verify that process.exit was called with error code
       // This is the key behavior - critical errors during init cause process exit
       expect(exitSpy).toHaveBeenCalledWith(1);
-      
+
       // Note: Logger won't be called since it's created AFTER ensureDir, which is what's failing
 
       exitSpy.mockRestore();
@@ -1140,7 +1199,7 @@ describe('DapProxyWorker', () => {
       // Use worker with mocked exit hook to prevent process.exit
       const exitSpy = vi.fn();
       worker = new DapProxyWorker(dependencies, { exit: exitSpy });
-      
+
       const payload: ProxyInitPayload = {
         cmd: 'init',
         sessionId: 'test-session',

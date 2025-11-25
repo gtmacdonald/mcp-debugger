@@ -3,9 +3,9 @@
  * continuing, and breakpoint management.
  */
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  Breakpoint, 
-  SessionState, 
+import {
+  Breakpoint,
+  SessionState,
   SessionLifecycleState
 } from '@debugmcp/shared';
 import { ManagedSession, ToolchainValidationState } from './session-store.js';
@@ -55,7 +55,7 @@ export class SessionManagerOperations extends SessionManagerData {
     adapterLaunchConfig?: Record<string, unknown>
   ): Promise<LanguageSpecificLaunchConfig> {
     const sessionId = session.id;
-    
+
     // Log entrance for Windows CI debugging
     this.logger.info(
       `[SessionManager] Entering startProxyManager for session ${sessionId}, dryRunSpawn: ${dryRunSpawn}, scriptPath: ${scriptPath}`
@@ -144,8 +144,7 @@ export class SessionManagerOperations extends SessionManagerData {
       transformedLaunchConfig = await adapter.transformLaunchConfig(genericLaunchConfig as GenericLaunchConfig);
     } catch (error) {
       this.logger.warn(
-        `[SessionManager] transformLaunchConfig failed for ${session.language}: ${
-          error instanceof Error ? error.message : String(error)
+        `[SessionManager] transformLaunchConfig failed for ${session.language}: ${error instanceof Error ? error.message : String(error)
         }`
       );
       transformedLaunchConfig = undefined;
@@ -156,8 +155,8 @@ export class SessionManagerOperations extends SessionManagerData {
     };
     const toolchainValidation =
       typeof adapterWithToolchain.consumeLastToolchainValidation === 'function'
-      ? (adapterWithToolchain.consumeLastToolchainValidation() as ToolchainValidationState)
-      : undefined;
+        ? (adapterWithToolchain.consumeLastToolchainValidation() as ToolchainValidationState)
+        : undefined;
 
     if (toolchainValidation) {
       this.sessionStore.update(sessionId, { toolchainValidation });
@@ -363,7 +362,7 @@ export class SessionManagerOperations extends SessionManagerData {
       `Attempting to start debugging for session ${sessionId}, script: ${scriptPath}, dryRunSpawn: ${dryRunSpawn}, dapLaunchArgs:`,
       dapLaunchArgs
     );
-    
+
     // CI Debug: Entry point
     if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
       console.error(`[CI Debug] startDebugging entry - sessionId: ${sessionId}, dryRunSpawn: ${dryRunSpawn}, scriptPath: ${scriptPath}`);
@@ -392,7 +391,7 @@ export class SessionManagerOperations extends SessionManagerData {
         if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
           console.error(`[CI Debug] Entering dry run branch for session ${sessionId}`);
         }
-        
+
         // Mark that we're setting up a dry run handler
         const sessionWithSetup = session as ManagedSession & { _dryRunHandlerSetup?: boolean };
         sessionWithSetup._dryRunHandlerSetup = true;
@@ -401,11 +400,11 @@ export class SessionManagerOperations extends SessionManagerData {
         if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
           console.error(`[CI Debug] About to call startProxyManager for dry run`);
         }
-        
+
         // Start the proxy manager
         await this.startProxyManager(session, scriptPath, scriptArgs, dapLaunchArgs, dryRunSpawn, adapterLaunchConfig);
         this.logger.info(`[SessionManager] ProxyManager started for session ${sessionId}`);
-        
+
         // CI Debug: After startProxyManager
         if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
           console.error(`[CI Debug] startProxyManager completed, checking state`);
@@ -414,12 +413,12 @@ export class SessionManagerOperations extends SessionManagerData {
         // Check if already completed before waiting
         const refreshedSession = this._getSessionById(sessionId);
         this.logger.info(`[SessionManager] Checking state after start: ${refreshedSession.state}`);
-        
+
         // CI Debug: State check
         if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
           console.error(`[CI Debug] Session state after proxy start: ${refreshedSession.state}`);
         }
-        
+
         const initialDryRunSnapshot = refreshedSession.proxyManager?.getDryRunSnapshot?.();
         const dryRunAlreadyComplete =
           refreshedSession.state === SessionState.STOPPED ||
@@ -430,12 +429,12 @@ export class SessionManagerOperations extends SessionManagerData {
             `[SessionManager] Dry run already completed for session ${sessionId}`
           );
           delete sessionWithSetup._dryRunHandlerSetup;
-          
+
           // CI Debug: Early completion
           if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
             console.error(`[CI Debug] Dry run completed immediately (state=STOPPED)`);
           }
-          
+
           return {
             success: true,
             state: SessionState.STOPPED,
@@ -452,18 +451,18 @@ export class SessionManagerOperations extends SessionManagerData {
         this.logger.info(
           `[SessionManager] Waiting for dry run completion with timeout ${this.dryRunTimeoutMs}ms`
         );
-        
+
         // CI Debug: Before wait
         if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
           console.error(`[CI Debug] Waiting for dry run completion, timeout: ${this.dryRunTimeoutMs}ms`);
         }
-        
+
         const dryRunCompleted = await this.waitForDryRunCompletion(
           refreshedSession,
           this.dryRunTimeoutMs
         );
         delete sessionWithSetup._dryRunHandlerSetup;
-        
+
         // CI Debug: After wait
         if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
           console.error(`[CI Debug] waitForDryRunCompletion returned: ${dryRunCompleted}`);
@@ -481,12 +480,12 @@ export class SessionManagerOperations extends SessionManagerData {
           this.logger.info(
             `[SessionManager] Dry run completed for session ${sessionId}, final state: ${latestSessionState.state}`
           );
-          
+
           // CI Debug: Success path
           if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
             console.error(`[CI Debug] Dry run success path - returning success`);
           }
-          
+
           return {
             success: true,
             state: SessionState.STOPPED,
@@ -502,14 +501,14 @@ export class SessionManagerOperations extends SessionManagerData {
           const finalSession = latestSessionState;
           this.logger.error(
             `[SessionManager] Dry run timeout for session ${sessionId}. ` +
-              `State: ${finalSession.state}, ProxyManager active: ${!!finalSession.proxyManager}`
+            `State: ${finalSession.state}, ProxyManager active: ${!!finalSession.proxyManager}`
           );
-          
+
           // CI Debug: Timeout path
           if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
             console.error(`[CI Debug] Dry run timeout! State: ${finalSession.state}, ProxyManager: ${!!finalSession.proxyManager}`);
           }
-          
+
           return {
             success: false,
             error: `Dry run timed out after ${this.dryRunTimeoutMs}ms. Current state: ${finalSession.state}`,
@@ -538,8 +537,7 @@ export class SessionManagerOperations extends SessionManagerData {
           });
         } catch (handshakeErr) {
           this.logger.warn(
-            `[SessionManager] Language handshake returned with warning/error: ${
-              handshakeErr instanceof Error ? handshakeErr.message : String(handshakeErr)
+            `[SessionManager] Language handshake returned with warning/error: ${handshakeErr instanceof Error ? handshakeErr.message : String(handshakeErr)
             }`
           );
         }
@@ -653,9 +651,8 @@ export class SessionManagerOperations extends SessionManagerData {
           }
         }
       } catch (logReadError) {
-        proxyLogTail = `<<Failed to read proxy log: ${
-          logReadError instanceof Error ? logReadError.message : String(logReadError)
-        }>>`;
+        proxyLogTail = `<<Failed to read proxy log: ${logReadError instanceof Error ? logReadError.message : String(logReadError)
+          }>>`;
       }
 
       // Comprehensive error capture for debugging Windows CI issues
@@ -684,7 +681,7 @@ export class SessionManagerOperations extends SessionManagerData {
         `[SessionManager] Detailed error in startDebugging for session ${sessionId}:`,
         errorDetails
       );
-      
+
       // Also log to console for CI visibility
       if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
         console.error('[SessionManager] Windows CI Debug - Full error details:', errorDetails);
@@ -801,8 +798,7 @@ export class SessionManagerOperations extends SessionManagerData {
           newBreakpoint.line = bpInfo.line || newBreakpoint.line;
           newBreakpoint.message = bpInfo.message; // Capture validation message
           this.logger.info(
-            `[SessionManager] Breakpoint ${bpId} sent and response received. Verified: ${newBreakpoint.verified}${
-              bpInfo.message ? `, Message: ${bpInfo.message}` : ''
+            `[SessionManager] Breakpoint ${bpId} sent and response received. Verified: ${newBreakpoint.verified}${bpInfo.message ? `, Message: ${bpInfo.message}` : ''
             }`
           );
 
@@ -1075,6 +1071,68 @@ export class SessionManagerOperations extends SessionManagerData {
     });
   }
 
+  async pause(sessionId: string): Promise<DebugResult> {
+    const session = this._getSessionById(sessionId);
+
+    // Check if session is terminated
+    if (session.sessionLifecycle === SessionLifecycleState.TERMINATED) {
+      throw new SessionTerminatedError(sessionId);
+    }
+
+    this.logger.info(
+      `[SessionManager pause] Called for session ${sessionId}. Current state: ${session.state}`
+    );
+
+    if (!session.proxyManager || !session.proxyManager.isRunning()) {
+      throw new ProxyNotRunningError(sessionId, 'pause');
+    }
+
+    // If already paused, we can just return success
+    if (session.state === SessionState.PAUSED || session.state === SessionState.STOPPED) {
+      this.logger.info(`[SessionManager pause] Session ${sessionId} is already paused.`);
+      return { success: true, state: session.state };
+    }
+
+    let threadId = session.proxyManager.getCurrentThreadId();
+
+    if (typeof threadId !== 'number') {
+      try {
+        this.logger.info(`[SessionManager pause] No current thread ID. Attempting to fetch threads...`);
+        const threadsResponse = await session.proxyManager.sendDapRequest<DebugProtocol.ThreadsResponse>('threads', {});
+        if (threadsResponse.body && threadsResponse.body.threads && threadsResponse.body.threads.length > 0) {
+          threadId = threadsResponse.body.threads[0].id;
+          this.logger.info(`[SessionManager pause] Retrieved thread ID ${threadId} from threads request.`);
+        } else {
+          this.logger.warn(`[SessionManager pause] Could not retrieve threads. Defaulting to 1.`);
+          threadId = 1;
+        }
+      } catch (e) {
+        this.logger.warn(`[SessionManager pause] Failed to get threads: ${e}. Defaulting to 1.`);
+        threadId = 1;
+      }
+    }
+
+    try {
+      this.logger.info(
+        `[SessionManager pause] Sending DAP 'pause' for session ${sessionId}, threadId ${threadId}.`
+      );
+      await session.proxyManager.sendDapRequest('pause', { threadId });
+
+      // We don't update state to PAUSED here immediately.
+      // We wait for the 'stopped' event from the adapter to update the state.
+      // However, we can return success that the request was sent.
+
+      return { success: true, state: session.state };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[SessionManager pause] Error sending 'pause' to proxy for session ${sessionId}: ${errorMessage}`
+      );
+      throw error;
+    }
+  }
+
+
   async continue(sessionId: string): Promise<DebugResult> {
     const session = this._getSessionById(sessionId);
 
@@ -1326,8 +1384,8 @@ export class SessionManagerOperations extends SessionManagerData {
       }
 
       return { success: false, error: userError };
+    }
   }
-}
 
   /**
    * Wait for a session to emit a stopped event after launch to honour the first breakpoint.

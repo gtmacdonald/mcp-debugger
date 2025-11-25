@@ -14,29 +14,29 @@
 export type {
   // Main interface
   IDebugAdapter,
-  
+
   // Validation
   ValidationResult,
   ValidationError,
   ValidationWarning,
   DependencyInfo,
-  
+
   // State and configuration
   AdapterConfig,
   AdapterCommand,
   AdapterCapabilities,
-  
+
   // Launch configurations
   GenericLaunchConfig,
   LanguageSpecificLaunchConfig,
-  
+
   // Features
   FeatureRequirement,
   ExceptionBreakpointFilter,
-  
+
   // Events
   AdapterEvents,
-  
+
   // Migration
   ConfigMigration
 } from './interfaces/debug-adapter.js';
@@ -45,10 +45,10 @@ export type {
 export {
   // State enum
   AdapterState,
-  
+
   // Feature enum
   DebugFeature,
-  
+
   // Error class and enum
   AdapterError,
   AdapterErrorCode
@@ -59,16 +59,16 @@ export type {
   // Main interfaces
   IAdapterRegistry,
   IAdapterFactory,
-  
+
   // Configuration and metadata
   AdapterDependencies,
   AdapterMetadata,
   AdapterInfo,
   AdapterRegistryConfig,
-  
+
   // Validation
   FactoryValidationResult,
-  
+
   // Utility types
   AdapterFactoryMap,
   ActiveAdapterMap
@@ -78,12 +78,12 @@ export type {
 export {
   // Implementation helpers
   BaseAdapterFactory,
-  
+
   // Errors
   AdapterNotFoundError,
   FactoryValidationError,
   DuplicateRegistrationError,
-  
+
   // Type guards
   isAdapterFactory,
   isAdapterRegistry
@@ -101,11 +101,11 @@ export type {
   IProxyManager,
   IProxyManagerFactory,
   IEnvironment,
-  
+
   // Dependency injection
   IDependencies,
   PartialDependencies,
-  
+
   // Factories
   ILoggerFactory,
   IChildProcessFactory
@@ -117,15 +117,15 @@ export type {
   IProcess,
   IProcessLauncher,
   IProcessOptions,
-  
+
   // Debug target interfaces
   IDebugTargetLauncher,
   IDebugTarget,
-  
+
   // Proxy process interfaces
   IProxyProcessLauncher,
   IProxyProcess,
-  
+
   // Factory
   IProcessLauncherFactory
 } from './interfaces/process-interfaces.js';
@@ -136,13 +136,13 @@ export type {
 export type {
   // Launch arguments
   CustomLaunchRequestArguments,
-  
+
   // Session types
   SessionConfig,
   Breakpoint,
   DebugSession,
   DebugSessionInfo,
-  
+
   // Debug info types
   Variable,
   StackFrame,
@@ -156,7 +156,7 @@ export {
   SessionLifecycleState,
   ExecutionState,
   SessionState,
-  
+
   // State mapping functions
   mapLegacyState,
   mapToLegacyState
@@ -167,11 +167,11 @@ export {
 export { AdapterFactory } from './factories/adapter-factory.js';
 
 // Adapter Policy interfaces and implementations
-export type { 
-  AdapterPolicy, 
+export type {
+  AdapterPolicy,
   ChildSessionStrategy,
   AdapterSpecificState,
-  CommandHandling 
+  CommandHandling
 } from './interfaces/adapter-policy.js';
 export { DefaultAdapterPolicy } from './interfaces/adapter-policy.js';
 export { JsDebugAdapterPolicy } from './interfaces/adapter-policy-js.js';
@@ -179,6 +179,7 @@ export { PythonAdapterPolicy } from './interfaces/adapter-policy-python.js';
 export { RustAdapterPolicy } from './interfaces/adapter-policy-rust.js';
 export type { RustAdapterPolicyInterface } from './interfaces/adapter-policy-rust.js';
 export { MockAdapterPolicy } from './interfaces/adapter-policy-mock.js';
+export { ZigAdapterPolicy } from './interfaces/adapter-policy-zig.js';
 
 // DAP Client Behavior interfaces for adapter policies
 export type {

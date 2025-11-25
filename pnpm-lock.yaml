@@ -154,6 +154,9 @@ importers:
       '@debugmcp/adapter-rust':
         specifier: workspace:*
         version: link:packages/adapter-rust
+      '@debugmcp/adapter-zig':
+        specifier: workspace:*
+        version: link:packages/adapter-zig
 
   packages/adapter-javascript:
     dependencies:

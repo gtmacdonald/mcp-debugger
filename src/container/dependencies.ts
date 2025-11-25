@@ -17,13 +17,13 @@ import {
   IDebugTargetLauncher,
   IProxyProcessLauncher
 } from '@debugmcp/shared';
-import { 
-  FileSystemImpl, 
-  ProcessManagerImpl, 
+import {
+  FileSystemImpl,
+  ProcessManagerImpl,
   NetworkManagerImpl,
   ProcessLauncherImpl,
   ProxyProcessLauncherImpl,
-  DebugTargetLauncherImpl 
+  DebugTargetLauncherImpl
 } from '../implementations/index.js';
 import { ProcessEnvironment } from '../implementations/environment-impl.js';
 import { ISessionStoreFactory } from '../factories/session-store-factory.js';
@@ -49,16 +49,16 @@ export interface Dependencies {
   networkManager: INetworkManager;
   logger: ILogger;
   environment: IEnvironment;
-  
+
   // Process launchers
   processLauncher: IProcessLauncher;
   proxyProcessLauncher: IProxyProcessLauncher;
   debugTargetLauncher: IDebugTargetLauncher;
-  
+
   // Factories
   proxyManagerFactory: IProxyManagerFactory;
   sessionStoreFactory: ISessionStoreFactory;
-  
+
   // Adapter support
   adapterRegistry: IAdapterRegistry;
 }
@@ -75,27 +75,27 @@ export function createProductionDependencies(config: ContainerConfig = {}): Depe
     file: config.logFile,
     ...config.loggerOptions
   });
-  
+
   // Create base implementations
   const environment = new ProcessEnvironment();
   const fileSystem = new FileSystemImpl();
   const processManager = new ProcessManagerImpl();
   const networkManager = new NetworkManagerImpl();
-  
+
   // Create process launchers
   const processLauncher = new ProcessLauncherImpl(processManager);
   const proxyProcessLauncher = new ProxyProcessLauncherImpl(processLauncher, processManager);
   const debugTargetLauncher = new DebugTargetLauncherImpl(processLauncher, networkManager);
-  
+
   // Create factories
   const proxyManagerFactory = new ProxyManagerFactory(
     proxyProcessLauncher,
     fileSystem,
     logger
   );
-  
+
   const sessionStoreFactory = new SessionStoreFactory();
-  
+
   // Create adapter registry with validation disabled during registration
   // Validation will happen when actually creating adapter instances
   // Enable dynamic adapter loading in production to allow on-demand adapter discovery
@@ -125,7 +125,7 @@ export function createProductionDependencies(config: ContainerConfig = {}): Depe
   // Adapters are loaded dynamically on-demand by the AdapterRegistry via AdapterLoader.
   // In container runtime, pre-register known adapters using dynamic import (fire-and-forget)
   if (process.env.MCP_CONTAINER === 'true') {
-    const tryRegister = (lang: 'mock' | 'python' | 'javascript' | 'rust', factoryName: string) => {
+    const tryRegister = (lang: 'mock' | 'python' | 'javascript' | 'rust' | 'zig', factoryName: string) => {
       if (isLanguageDisabled(lang)) {
         logger.info?.(`[AdapterRegistry] Skipping bundled adapter '${lang}' (disabled via env).`);
         return;
@@ -151,8 +151,9 @@ export function createProductionDependencies(config: ContainerConfig = {}): Depe
     tryRegister('python', 'PythonAdapterFactory');
     tryRegister('javascript', 'JavascriptAdapterFactory');
     tryRegister('rust', 'RustAdapterFactory');
+    tryRegister('zig', 'ZigAdapterFactory');
   }
-  
+
   return {
     fileSystem,
     processManager,

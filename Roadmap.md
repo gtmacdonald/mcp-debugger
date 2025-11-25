@@ -18,9 +18,7 @@ Status snapshot as of **2025‑11‑22**:
 
 ### Medium priority
 
-3. **Pause execution (`pause_execution`)**
-   - Current proxy still returns “not yet implemented”
-   - Design work in progress to integrate with proxy lifecycle hooks
+
 
 4. **Source context (`get_source_context`)**
    - Returns limited context today; needs streaming + caching for large files
@@ -33,6 +31,7 @@ Status snapshot as of **2025‑11‑22**:
 
 ## ✅ Recently Delivered
 
+- **Unreleased** – Zig adapter (Alpha), Pause execution support
 - **v0.17.0** – Rust adapter backed by CodeLLDB plus richer stepping responses with inline source context
 - **v0.16.0** – First-class JavaScript adapter with TypeScript detection, js‑debug vendoring, and adapter policy orchestration
 - **v0.15.x** – Self-contained CLI bundle (npx-friendly), proxy diagnostics, Windows CI resiliency

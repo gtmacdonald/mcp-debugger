@@ -22,17 +22,18 @@ import {
 import { CallbackRequestTracker } from './dap-proxy-request-tracker.js';
 import { GenericAdapterManager } from './dap-proxy-adapter-manager.js';
 import { DapConnectionManager } from './dap-proxy-connection-manager.js';
-import { 
+import {
   validateProxyInitPayload
 } from '../utils/type-guards.js';
 import { SilentDapCommandPayload } from './dap-extensions.js';
 // Import adapter policies from shared package
 import type { AdapterPolicy, AdapterSpecificState } from '@debugmcp/shared';
-import { 
+import {
   DefaultAdapterPolicy,
   JsDebugAdapterPolicy,
   PythonAdapterPolicy,
   RustAdapterPolicy,
+  ZigAdapterPolicy,
   MockAdapterPolicy
 } from '@debugmcp/shared';
 
@@ -60,7 +61,7 @@ export class DapProxyWorker {
   private requestTracker: CallbackRequestTracker;
   private processManager: GenericAdapterManager | null = null;
   private connectionManager: DapConnectionManager | null = null;
-  
+
   // Policy-based state management
   private adapterPolicy: AdapterPolicy = DefaultAdapterPolicy;
   private adapterState: AdapterSpecificState;
@@ -99,7 +100,7 @@ export class DapProxyWorker {
       // Legacy Python mode
       return PythonAdapterPolicy;
     }
-    
+
     // Check each policy's matcher
     if (JsDebugAdapterPolicy.matchesAdapter(adapterCommand)) {
       return JsDebugAdapterPolicy;
@@ -107,10 +108,12 @@ export class DapProxyWorker {
       return PythonAdapterPolicy;
     } else if (RustAdapterPolicy.matchesAdapter(adapterCommand)) {
       return RustAdapterPolicy;
+    } else if (ZigAdapterPolicy.matchesAdapter(adapterCommand)) {
+      return ZigAdapterPolicy;
     } else if (MockAdapterPolicy.matchesAdapter(adapterCommand)) {
       return MockAdapterPolicy;
     }
-    
+
     // Fallback to default
     return DefaultAdapterPolicy;
   }
@@ -184,12 +187,12 @@ export class DapProxyWorker {
 
     // Validate payload structure
     const validatedPayload = validateProxyInitPayload(payload);
-    
+
     // Select adapter policy
     this.adapterPolicy = this.selectAdapterPolicy(validatedPayload.adapterCommand);
     this.adapterState = this.adapterPolicy.createInitialState();
     this.logger?.info(`[Worker] Selected adapter policy: ${this.adapterPolicy.name}`);
-    
+
     this.state = ProxyState.INITIALIZING;
     this.currentInitPayload = validatedPayload;
 
@@ -219,7 +222,7 @@ export class DapProxyWorker {
         this.logger,
         this.dependencies.fileSystem
       );
-      
+
       this.connectionManager = new DapConnectionManager(
         this.dependencies.dapClientFactory,
         this.logger
@@ -260,22 +263,22 @@ export class DapProxyWorker {
       scriptPath: payload.scriptPath,
       adapterCommand: payload.adapterCommand
     });
-    
+
     if (!spawnConfig) {
       throw new Error(`Cannot determine adapter command for dry run (policy: ${this.adapterPolicy.name})`);
     }
-    
+
     const fullCommand = `${spawnConfig.command} ${spawnConfig.args.join(' ')}`;
-    
+
     this.logger!.warn(`[Worker DRY_RUN] Would execute: ${fullCommand}`);
     this.logger!.warn(`[Worker DRY_RUN] Script to debug: ${payload.scriptPath}`);
-    
+
     // Send dry run complete status
-    this.sendStatus('dry_run_complete', { 
-      command: fullCommand, 
-      script: payload.scriptPath 
+    this.sendStatus('dry_run_complete', {
+      command: fullCommand,
+      script: payload.scriptPath
     });
-    
+
     // For IPC, ensure the message is flushed before terminating
     // Use setImmediate to allow the event loop to process the IPC send
     // This is crucial on Windows where IPC messages can be lost if the process exits too quickly
@@ -304,11 +307,11 @@ export class DapProxyWorker {
       scriptPath: payload.scriptPath,
       adapterCommand: payload.adapterCommand
     });
-    
+
     if (!spawnConfig) {
       throw new Error(`Adapter policy ${this.adapterPolicy.name} does not provide spawn configuration`);
     }
-    
+
     // Spawn adapter process using the config from the policy
     const spawnResult = await this.processManager!.spawn(spawnConfig);
 
@@ -349,10 +352,10 @@ export class DapProxyWorker {
           payload.sessionId,
           this.adapterPolicy.getDapAdapterConfiguration().type
         );
-        
+
         // Send automatic launch request for non-queueing adapters
         this.logger!.info('[Worker] Sending launch request with scriptPath:', payload.scriptPath);
-        
+
         await this.connectionManager!.sendLaunchRequest(
           this.dapClient,
           payload.scriptPath,
@@ -382,7 +385,7 @@ export class DapProxyWorker {
         if (this.adapterPolicy.updateStateOnEvent) {
           this.adapterPolicy.updateStateOnEvent('initialized', {}, this.adapterState);
         }
-        
+
         if (this.adapterPolicy.requiresCommandQueueing()) {
           this.logger!.info(`[Worker] DAP "initialized" (${this.adapterPolicy.name}) received; forwarding event and draining queue.`);
           this.sendDapEvent('initialized', {});
@@ -489,7 +492,7 @@ export class DapProxyWorker {
         this.logger?.info(`[Worker] Queued pre-connect DAP command: ${payload.dapCommand}`);
         return;
       }
-      
+
       this.sendDapResponse(payload.requestId, false, undefined, 'DAP client not connected');
       return;
     }
@@ -500,19 +503,19 @@ export class DapProxyWorker {
       this.logger?.info(
         `[Worker] Queue decision for '${payload.dapCommand}': shouldQueue=${handling.shouldQueue} shouldDefer=${handling.shouldDefer} queueLength=${this.commandQueue.length}`
       );
-      
+
       if (handling.shouldQueue) {
         this.logger!.info(`[Worker] ${handling.reason || 'Queuing command'}`);
-        
+
         // Check if we need to inject configurationDone
         const initBehavior = this.adapterPolicy.getInitializationBehavior();
         if (handling.shouldDefer && initBehavior.deferConfigDone) {
           const hasQueuedConfigDone = this.commandQueue.some(p => p.dapCommand === 'configurationDone');
           if (!hasQueuedConfigDone) {
             // Inject a silent configurationDone
-            const silentCommand: SilentDapCommandPayload = { 
-              requestId: `__silent_configDone_${Date.now()}`, 
-              dapCommand: 'configurationDone', 
+            const silentCommand: SilentDapCommandPayload = {
+              requestId: `__silent_configDone_${Date.now()}`,
+              dapCommand: 'configurationDone',
               dapArgs: {},
               sessionId: payload.sessionId,
               cmd: 'dap',
@@ -522,7 +525,7 @@ export class DapProxyWorker {
             this.commandQueue.push(silentCommand);
           }
         }
-        
+
         this.commandQueue.push(payload);
         this.logger?.info(
           `[Worker] Command queued. queueLength=${this.commandQueue.length} (command='${payload.dapCommand}')`
@@ -554,7 +557,7 @@ export class DapProxyWorker {
       // Send request
       this.logger?.info(`[Worker] Sending '${payload.dapCommand}' to adapter`);
       const response = await this.dapClient.sendRequest(payload.dapCommand, dapArgs);
-      
+
       // Update adapter state if needed
       if (this.adapterPolicy.updateStateOnCommand) {
         this.adapterPolicy.updateStateOnCommand(payload.dapCommand, dapArgs, this.adapterState);
@@ -573,7 +576,7 @@ export class DapProxyWorker {
 
       // Send response
       this.sendDapResponse(payload.requestId, true, response);
-      
+
       // Ensure initial stop after launch if needed
       if (initBehavior.requiresInitialStop && (payload.dapCommand === 'launch' || payload.dapCommand === 'attach')) {
         await this.drainCommandQueue();
@@ -596,18 +599,18 @@ export class DapProxyWorker {
    */
   private async drainCommandQueue(): Promise<void> {
     if (!this.dapClient || this.commandQueue.length === 0) return;
-    
+
     this.logger!.info(`[Worker] Draining command queue. Count: ${this.commandQueue.length}`);
-    
+
     // Process commands through policy if it has a processor
     let ordered = this.commandQueue;
     if (this.adapterPolicy.processQueuedCommands) {
       ordered = this.adapterPolicy.processQueuedCommands(this.commandQueue, this.adapterState) as DapCommandPayload[];
     }
-    
+
     // Clear queue after ordering
     this.commandQueue = [];
-    
+
     let remaining = ordered.length;
     for (const payload of ordered) {
       remaining--;
@@ -626,14 +629,14 @@ export class DapProxyWorker {
 
         this.requestTracker.track(payload.requestId, payload.dapCommand);
         const response = await this.dapClient!.sendRequest(payload.dapCommand, payload.dapArgs);
-        
+
         if (this.adapterPolicy.updateStateOnCommand) {
           this.adapterPolicy.updateStateOnCommand(payload.dapCommand, payload.dapArgs || {}, this.adapterState);
         }
-        
+
         this.requestTracker.complete(payload.requestId);
         this.sendDapResponse(payload.requestId, true, response);
-        
+
         const initBehavior = this.adapterPolicy.getInitializationBehavior();
         if (initBehavior.requiresInitialStop && (payload.dapCommand === 'launch' || payload.dapCommand === 'attach')) {
           this.ensureInitialStop().catch((err) => {
@@ -714,7 +717,7 @@ export class DapProxyWorker {
       this.logger?.info('[Worker] Already shutting down or terminated.');
       return;
     }
-    
+
     // Use optional chaining since logger might be null if not initialized
     this.logger?.info('[Worker] Received terminate command.');
     await this.shutdown();
@@ -775,9 +778,9 @@ export class DapProxyWorker {
       requestId,
       success,
       sessionId: this.currentSessionId || 'unknown',
-      ...(success && response ? { 
-        body: (response as DebugProtocol.Response).body, 
-        response: response as DebugProtocol.Response 
+      ...(success && response ? {
+        body: (response as DebugProtocol.Response).body,
+        response: response as DebugProtocol.Response
       } : { error })
     };
     this.dependencies.messageSender.send(message);

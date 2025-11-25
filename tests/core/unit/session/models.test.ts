@@ -211,11 +211,12 @@ describe('Session Models', () => {
         expect(DebugLanguage.MOCK).toBe('mock');
       });
 
-      it('should have exactly 4 language options including javascript and rust', () => {
+      it('should have exactly 5 language options including javascript, rust, and zig', () => {
         const languages = Object.values(DebugLanguage);
-        expect(languages).toHaveLength(4);
+        expect(languages).toHaveLength(5);
         expect(languages).toContain('javascript');
         expect(languages).toContain('rust');
+        expect(languages).toContain('zig');
       });
     });
 
@@ -269,7 +270,7 @@ describe('Session Models', () => {
     it('should handle all possible lifecycle and execution combinations', () => {
       const lifecycleStates = Object.values(SessionLifecycleState);
       const executionStates = [...Object.values(ExecutionState), undefined];
-      
+
       // Test all combinations don't throw errors
       lifecycleStates.forEach(lifecycle => {
         executionStates.forEach(execution => {
@@ -280,7 +281,7 @@ describe('Session Models', () => {
 
     it('should handle all legacy states without throwing', () => {
       const legacyStates = Object.values(SessionState);
-      
+
       legacyStates.forEach(state => {
         expect(() => mapLegacyState(state)).not.toThrow();
       });
@@ -291,7 +292,7 @@ describe('Session Models', () => {
     it('should export all expected types', () => {
       // This test verifies that TypeScript compilation succeeds with all the exported types
       // The actual type checking is done at compile time, but we can verify the structure
-      
+
       // Example type usage to ensure they're exported correctly
       const mockSession: import('@debugmcp/shared').DebugSession = {
         id: 'test-id',

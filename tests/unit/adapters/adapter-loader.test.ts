@@ -294,7 +294,7 @@ describe('AdapterLoader', () => {
 
       const adapters = await adapterLoader.listAvailableAdapters();
 
-      expect(adapters).toHaveLength(4);
+      expect(adapters).toHaveLength(5); // Updated: now includes Zig
 
       const pythonAdapter = adapters.find(a => a.name === 'python');
       expect(pythonAdapter).toEqual({

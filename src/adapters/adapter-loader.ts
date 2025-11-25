@@ -140,6 +140,7 @@ export class AdapterLoader {
       { name: 'python', packageName: '@debugmcp/adapter-python', description: 'Python debugger using debugpy' },
       { name: 'javascript', packageName: '@debugmcp/adapter-javascript', description: 'JavaScript/TypeScript debugger using js-debug' },
       { name: 'rust', packageName: '@debugmcp/adapter-rust', description: 'Rust debugger using CodeLLDB' },
+      { name: 'zig', packageName: '@debugmcp/adapter-zig', description: 'Zig debugger using lldb-dap' },
     ];
 
     const results: AdapterMetadata[] = [];
@@ -171,7 +172,7 @@ export class AdapterLoader {
       new URL(`../packages/adapter-${language}/dist/index.js`, import.meta.url).href
     ];
   }
- 
+
   private getFactoryClassName(language: string): string {
     const capitalized = language.charAt(0).toUpperCase() + language.slice(1);
     return `${capitalized}AdapterFactory`;
