@@ -408,11 +408,7 @@ describe('Server Coverage - Error Paths and Edge Cases', () => {
       });
     });
 
-    it('handlePause surfaces standardized error response', async () => {
-      await expect((server as any).handlePause({ sessionId: 'test-session' })).rejects.toThrow('Pause execution not yet implemented with proxy.');
-      expect(mockLogger.info).toHaveBeenCalledWith('Pause requested for session: test-session');
-      expect(mockLogger.error).toHaveBeenCalled();
-    });
+    // Note: pause_execution is now implemented - see session-manager-dap.test.ts for tests
   });
 
   describe('Get Session Name Error Handling', () => {

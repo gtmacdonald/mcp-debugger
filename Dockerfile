@@ -24,6 +24,7 @@ COPY packages/adapter-mock/package.json ./packages/adapter-mock/package.json
 COPY packages/adapter-python/package.json ./packages/adapter-python/package.json
 COPY packages/adapter-javascript/package.json ./packages/adapter-javascript/package.json
 COPY packages/adapter-rust/package.json ./packages/adapter-rust/package.json
+COPY packages/adapter-zig/package.json ./packages/adapter-zig/package.json
 
 # 2) Install dependencies with workspace support using the lockfile
 #    If lockfile is stale, this will fail (good signal to refresh it locally).
@@ -47,6 +48,7 @@ COPY packages/adapter-mock/tsconfig*.json ./packages/adapter-mock/
 COPY packages/adapter-python/tsconfig*.json ./packages/adapter-python/
 COPY packages/adapter-javascript/tsconfig*.json ./packages/adapter-javascript/
 COPY packages/adapter-rust/tsconfig*.json ./packages/adapter-rust/
+COPY packages/adapter-zig/tsconfig*.json ./packages/adapter-zig/
 
 COPY src ./src
 COPY scripts ./scripts/
@@ -71,6 +73,7 @@ RUN rm -rf /app/node_modules/@debugmcp && \
     mkdir -p /app/node_modules/@debugmcp/adapter-mock && \
     mkdir -p /app/node_modules/@debugmcp/adapter-python && \
     mkdir -p /app/node_modules/@debugmcp/adapter-javascript && \
+    mkdir -p /app/node_modules/@debugmcp/adapter-zig && \
     cp -r /app/packages/shared/dist /app/node_modules/@debugmcp/shared/ && \
     cp /app/packages/shared/package.json /app/node_modules/@debugmcp/shared/ && \
     cp -r /app/packages/adapter-mock/dist /app/node_modules/@debugmcp/adapter-mock/ && \
@@ -79,7 +82,9 @@ RUN rm -rf /app/node_modules/@debugmcp && \
     cp /app/packages/adapter-python/package.json /app/node_modules/@debugmcp/adapter-python/ && \
     cp -r /app/packages/adapter-javascript/dist /app/node_modules/@debugmcp/adapter-javascript/ && \
     cp -r /app/packages/adapter-javascript/vendor /app/node_modules/@debugmcp/adapter-javascript/ && \
-    cp /app/packages/adapter-javascript/package.json /app/node_modules/@debugmcp/adapter-javascript/
+    cp /app/packages/adapter-javascript/package.json /app/node_modules/@debugmcp/adapter-javascript/ && \
+    cp -r /app/packages/adapter-zig/dist /app/node_modules/@debugmcp/adapter-zig/ && \
+    cp /app/packages/adapter-zig/package.json /app/node_modules/@debugmcp/adapter-zig/
 
 # Stage 2: Create runtime image with full LLDB dependencies
 FROM ubuntu:24.04

@@ -377,33 +377,5 @@ describe('Server Control Tools Tests', () => {
     });
   });
 
-  describe('pause_execution', () => {
-    it('should handle pause_execution as not implemented', async () => {
-      await expect(callToolHandler({
-        method: 'tools/call',
-        params: {
-          name: 'pause_execution',
-          arguments: { sessionId: 'test-session' }
-        }
-      })).rejects.toThrow(McpError);
-      
-      try {
-        await callToolHandler({
-          method: 'tools/call',
-          params: {
-            name: 'pause_execution',
-            arguments: { sessionId: 'test-session' }
-          }
-        });
-      } catch (error) {
-        expect(error).toBeInstanceOf(McpError);
-        expect((error as McpError).code).toBe(McpErrorCode.InternalError);
-        expect((error as McpError).message).toMatch(/not yet implemented/i);
-      }
-      
-      expect(mockDependencies.logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Pause requested for session: test-session')
-      );
-    });
-  });
+  // Note: pause_execution is now implemented - see session-manager-dap.test.ts for tests
 });
