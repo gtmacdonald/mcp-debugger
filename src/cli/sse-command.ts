@@ -160,8 +160,8 @@ export function createSSEApp(
 
   // Add a simple health check endpoint
   app.get('/health', (req, res) => {
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       mode: 'sse',
       connections: sseTransports.size,
       sessions: Array.from(sseTransports.keys())

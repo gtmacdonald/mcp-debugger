@@ -482,7 +482,6 @@ export class DebugMcpServer {
           { name: 'get_scopes', description: 'Get scopes for a stack frame', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, frameId: { type: 'number', description: "The ID of the stack frame from a stackTrace response" } }, required: ['sessionId', 'frameId'] } },
           { name: 'evaluate_expression', description: 'Evaluate expression in the current debug context. Expressions can read and modify program state', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, expression: { type: 'string' }, frameId: { type: 'number', description: 'Optional stack frame ID for evaluation context. Must be a frame ID from a get_stack_trace response. If not provided, uses the current (top) frame automatically' } }, required: ['sessionId', 'expression'] } },
           { name: 'get_source_context', description: 'Get source context around a specific line in a file', inputSchema: { type: 'object', properties: { sessionId: { type: 'string' }, file: { type: 'string', description: fileDescription }, line: { type: 'number', description: 'Line number to get context for' }, linesContext: { type: 'number', description: 'Number of lines before and after to include (default: 5)' } }, required: ['sessionId', 'file', 'line'] } },
-          { name: 'report_bug', description: 'Report a bug encountered during debugging', inputSchema: { type: 'object', properties: { severity: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] }, description: { type: 'string' }, context: { type: 'object', additionalProperties: true } }, required: ['severity', 'description'] } },
         ],
       };
     });
@@ -794,11 +793,6 @@ export class DebugMcpServer {
             }
             case 'pause_execution': {
               result = await this.handlePause(args as { sessionId: string });
-              break;
-            }
-            case 'report_bug': {
-              const { reportBugTool } = await import('./tools/report_bug.js');
-              result = await reportBugTool.handler(args as { severity: string; description: string; context?: Record<string, unknown> }) as ServerResult;
               break;
             }
             case 'get_variables': {
