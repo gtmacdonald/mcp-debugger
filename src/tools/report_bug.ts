@@ -9,7 +9,7 @@ export const reportBugTool = {
         description: z.string(),
         context: z.record(z.any()).optional()
     }),
-    handler: async (args: { severity: string; description: string; context?: any }) => {
+    handler: async (args: { severity: string; description: string; context?: Record<string, unknown> }) => {
         await saveReport(args.severity, args.description, args.context || {});
         return {
             content: [

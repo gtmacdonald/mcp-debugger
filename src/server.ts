@@ -798,7 +798,7 @@ export class DebugMcpServer {
             }
             case 'report_bug': {
               const { reportBugTool } = await import('./tools/report_bug.js');
-              result = await reportBugTool.handler(args as { severity: string; description: string; context?: any }) as ServerResult;
+              result = await reportBugTool.handler(args as { severity: string; description: string; context?: Record<string, unknown> }) as ServerResult;
               break;
             }
             case 'get_variables': {

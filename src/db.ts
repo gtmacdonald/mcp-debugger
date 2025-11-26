@@ -5,7 +5,7 @@ const pool = new Pool({
     // Assuming default local config for now
 });
 
-export async function saveReport(severity: string, description: string, context: any) {
+export async function saveReport(severity: string, description: string, context: Record<string, unknown>) {
     const client = await pool.connect();
     try {
         await client.query(

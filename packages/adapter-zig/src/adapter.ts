@@ -462,13 +462,13 @@ export class ZigAdapter extends EventEmitter implements IDebugAdapter {
 
     async sendDapRequest<T extends DebugProtocol.Response>(
         command: string,
-        _args?: unknown
+        args?: unknown
     ): Promise<T> {
         // ProxyManager handles the actual DAP communication
         // This method is just for validation
 
         // Validate Zig-specific commands if needed
-        this.dependencies.logger?.debug(`[ZigAdapter] DAP request: ${command}`);
+        this.dependencies.logger?.debug(`[ZigAdapter] DAP request: ${command}`, args);
 
         return {} as T;
     }
@@ -687,7 +687,7 @@ After installation, you may need to add LLVM's bin directory to your PATH.`;
                         resolve(null);
                     }
                 });
-            } catch (_error) {
+            } catch {
                 resolve(null);
             }
         });

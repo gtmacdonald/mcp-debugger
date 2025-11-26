@@ -60,8 +60,8 @@ export const ZigAdapterPolicy: AdapterPolicy = {
 
     isSessionReady: (state: SessionState) => state === SessionState.PAUSED,
 
-    validateExecutable: async (_path: string): Promise<boolean> => {
-        // Simplified validation
+    validateExecutable: async (): Promise<boolean> => {
+        // Simplified validation - path checked elsewhere
         return true;
     },
 
