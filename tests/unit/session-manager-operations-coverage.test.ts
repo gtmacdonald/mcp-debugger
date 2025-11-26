@@ -634,9 +634,12 @@ describe('Session Manager Operations Coverage - Error Paths and Edge Cases', () 
         .mockRejectedValueOnce(new Error('Request failed')); // For evaluate
 
       const result = await operations.evaluateExpression('test-session', 'print("test")');
-      
+
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Request failed');
+      expect(result.error).toBe('Expression evaluation failed');
+      expect(result.errorInfo).toBeDefined();
+      expect(result.errorInfo?.category).toBe('Unknown');
+      expect(result.errorInfo?.originalError).toContain('Request failed');
     });
 
     it('maps syntax errors to friendly messages', async () => {
@@ -652,7 +655,10 @@ describe('Session Manager Operations Coverage - Error Paths and Edge Cases', () 
       const result = await operations.evaluateExpression('test-session', 'def foo(');
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Syntax error in expression');
+      expect(result.error).toBe('Invalid syntax in expression');
+      expect(result.errorInfo).toBeDefined();
+      expect(result.errorInfo?.category).toBe('SyntaxError');
+      expect(result.errorInfo?.suggestion).toBeDefined();
     });
 
     it('should handle evaluateExpression with timeout', async () => {
@@ -692,7 +698,7 @@ describe('Session Manager Operations Coverage - Error Paths and Edge Cases', () 
       mockProxyManager.getCurrentThreadId.mockReturnValue(5);
 
       mockProxyManager.sendDapRequest.mockImplementation(
-        async (command: string, args: unknown) => {
+        async (command: string, _args: unknown) => {
           if (command === 'stackTrace') {
             return {
               body: {
@@ -720,6 +726,7 @@ describe('Session Manager Operations Coverage - Error Paths and Edge Cases', () 
       expect(result.success).toBe(true);
       expect(result.result).toBe('42');
       expect(result.type).toBe('int');
+      expect(result.preview).toBe('42'); // Simple value, preview equals result
       expect(mockProxyManager.sendDapRequest).toHaveBeenCalledWith(
         'stackTrace',
         expect.objectContaining({ threadId: 5 })
@@ -728,6 +735,215 @@ describe('Session Manager Operations Coverage - Error Paths and Edge Cases', () 
         'evaluate',
         expect.objectContaining({ expression: '6*7', frameId: 123 })
       );
+    });
+
+    it('builds rich preview for objects with variablesReference', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.isRunning.mockReturnValue(true);
+      mockProxyManager.getCurrentThreadId.mockReturnValue(1);
+
+      mockProxyManager.sendDapRequest.mockImplementation(
+        async (command: string, args: unknown) => {
+          if (command === 'stackTrace') {
+            return { body: { stackFrames: [{ id: 1 }] } };
+          }
+          if (command === 'evaluate') {
+            return {
+              body: {
+                result: '<User object>',
+                type: 'User',
+                variablesReference: 100,
+                namedVariables: 3,
+              },
+            };
+          }
+          if (command === 'variables' && (args as { variablesReference: number }).variablesReference === 100) {
+            return {
+              body: {
+                variables: [
+                  { name: 'id', value: '1', type: 'int', variablesReference: 0 },
+                  { name: 'name', value: '"Alice"', type: 'str', variablesReference: 0 },
+                  { name: 'email', value: '"alice@example.com"', type: 'str', variablesReference: 0 },
+                ],
+              },
+            };
+          }
+          return {};
+        }
+      );
+
+      const result = await operations.evaluateExpression('test-session', 'user');
+
+      expect(result.success).toBe(true);
+      expect(result.result).toBe('<User object>');
+      expect(result.preview).toContain('id: 1');
+      expect(result.preview).toContain('name: "Alice"');
+      expect(result.preview).toContain('email: "alice@example.com"');
+    });
+
+    it('builds array preview with truncation', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.isRunning.mockReturnValue(true);
+      mockProxyManager.getCurrentThreadId.mockReturnValue(1);
+
+      mockProxyManager.sendDapRequest.mockImplementation(
+        async (command: string, args: unknown) => {
+          if (command === 'stackTrace') {
+            return { body: { stackFrames: [{ id: 1 }] } };
+          }
+          if (command === 'evaluate') {
+            return {
+              body: {
+                result: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',
+                type: 'list',
+                variablesReference: 200,
+                indexedVariables: 10,
+              },
+            };
+          }
+          if (command === 'variables' && (args as { variablesReference: number }).variablesReference === 200) {
+            return {
+              body: {
+                variables: [
+                  { name: '0', value: '1', type: 'int', variablesReference: 0 },
+                  { name: '1', value: '2', type: 'int', variablesReference: 0 },
+                  { name: '2', value: '3', type: 'int', variablesReference: 0 },
+                  { name: '3', value: '4', type: 'int', variablesReference: 0 },
+                  { name: '4', value: '5', type: 'int', variablesReference: 0 },
+                  { name: '5', value: '6', type: 'int', variablesReference: 0 },
+                  { name: '6', value: '7', type: 'int', variablesReference: 0 },
+                  { name: '7', value: '8', type: 'int', variablesReference: 0 },
+                  { name: '8', value: '9', type: 'int', variablesReference: 0 },
+                  { name: '9', value: '10', type: 'int', variablesReference: 0 },
+                ],
+              },
+            };
+          }
+          return {};
+        }
+      );
+
+      const result = await operations.evaluateExpression('test-session', 'my_list');
+
+      expect(result.success).toBe(true);
+      expect(result.preview).toContain('[1, 2, 3');
+      expect(result.preview).toContain('(10 total)');
+    });
+
+    it('filters internal properties from object preview', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.isRunning.mockReturnValue(true);
+      mockProxyManager.getCurrentThreadId.mockReturnValue(1);
+
+      mockProxyManager.sendDapRequest.mockImplementation(
+        async (command: string, args: unknown) => {
+          if (command === 'stackTrace') {
+            return { body: { stackFrames: [{ id: 1 }] } };
+          }
+          if (command === 'evaluate') {
+            return {
+              body: {
+                result: '<MyClass object>',
+                type: 'MyClass',
+                variablesReference: 300,
+                namedVariables: 5,
+              },
+            };
+          }
+          if (command === 'variables' && (args as { variablesReference: number }).variablesReference === 300) {
+            return {
+              body: {
+                variables: [
+                  { name: '__class__', value: "<class 'MyClass'>", type: 'type', variablesReference: 0 },
+                  { name: '__dict__', value: '{}', type: 'dict', variablesReference: 0 },
+                  { name: '_private', value: '42', type: 'int', variablesReference: 0 },
+                  { name: 'public_attr', value: '"hello"', type: 'str', variablesReference: 0 },
+                  { name: 'count', value: '5', type: 'int', variablesReference: 0 },
+                ],
+              },
+            };
+          }
+          return {};
+        }
+      );
+
+      const result = await operations.evaluateExpression('test-session', 'obj');
+
+      expect(result.success).toBe(true);
+      // Should filter out __class__, __dict__, and _private
+      expect(result.preview).toContain('public_attr');
+      expect(result.preview).toContain('count');
+      expect(result.preview).not.toContain('__class__');
+      expect(result.preview).not.toContain('__dict__');
+    });
+  });
+
+  describe('Evaluate Expression Error Info', () => {
+    it('provides structured error for NameError', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.sendDapRequest
+        .mockResolvedValueOnce({ body: { stackFrames: [{ id: 1 }] } })
+        .mockRejectedValueOnce(new Error("NameError: name 'undefined_var' is not defined"));
+
+      const result = await operations.evaluateExpression('test-session', 'undefined_var');
+
+      expect(result.success).toBe(false);
+      expect(result.errorInfo?.category).toBe('NameError');
+      expect(result.errorInfo?.message).toContain("'undefined_var'");
+      expect(result.errorInfo?.suggestion).toContain('get_local_variables');
+    });
+
+    it('provides structured error for TypeError', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.sendDapRequest
+        .mockResolvedValueOnce({ body: { stackFrames: [{ id: 1 }] } })
+        .mockRejectedValueOnce(new Error("TypeError: unsupported operand type(s) for +: 'int' and 'str'"));
+
+      const result = await operations.evaluateExpression('test-session', '1 + "hello"');
+
+      expect(result.success).toBe(false);
+      expect(result.errorInfo?.category).toBe('TypeError');
+      expect(result.errorInfo?.suggestion).toContain('type()');
+    });
+
+    it('provides structured error for AttributeError', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.sendDapRequest
+        .mockResolvedValueOnce({ body: { stackFrames: [{ id: 1 }] } })
+        .mockRejectedValueOnce(new Error("AttributeError: 'str' object has no attribute 'foo'"));
+
+      const result = await operations.evaluateExpression('test-session', '"hello".foo');
+
+      expect(result.success).toBe(false);
+      expect(result.errorInfo?.category).toBe('AttributeError');
+      expect(result.errorInfo?.message).toContain("'foo'");
+      expect(result.errorInfo?.suggestion).toContain('dir(');
+    });
+
+    it('provides structured error for KeyError', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.sendDapRequest
+        .mockResolvedValueOnce({ body: { stackFrames: [{ id: 1 }] } })
+        .mockRejectedValueOnce(new Error("KeyError: 'missing_key'"));
+
+      const result = await operations.evaluateExpression('test-session', 'my_dict["missing_key"]');
+
+      expect(result.success).toBe(false);
+      expect(result.errorInfo?.category).toBe('KeyError');
+      expect(result.errorInfo?.suggestion).toContain('.get(');
+    });
+
+    it('detects mismatched parentheses in syntax errors', async () => {
+      mockSession.state = SessionState.PAUSED;
+      mockProxyManager.sendDapRequest
+        .mockResolvedValueOnce({ body: { stackFrames: [{ id: 1 }] } })
+        .mockRejectedValueOnce(new Error("SyntaxError: unexpected EOF while parsing"));
+
+      const result = await operations.evaluateExpression('test-session', 'print((x + 1)');
+
+      expect(result.success).toBe(false);
+      expect(result.errorInfo?.category).toBe('SyntaxError');
+      expect(result.errorInfo?.suggestion).toContain('parentheses');
     });
   });
 

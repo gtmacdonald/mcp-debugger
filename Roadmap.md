@@ -4,13 +4,16 @@ This document captures the forward-looking plan for the debugger and highlights 
 
 ## 🎯 Active Feature Work
 
-Status snapshot as of **2025‑11‑22**:
+Status snapshot as of **2025‑11‑25**:
 
 ### High priority
 
 1. **Expression evaluation parity**
    - ✅ Python sessions now support `evaluate_expression`
-   - ⏳ Expand result rendering (object previews, truncation) and surface better error feedback
+   - ✅ Rich object previews with automatic property expansion (depth 1, up to 5 properties)
+   - ✅ Smart truncation for large results (200 char strings, 3 array items preview)
+   - ✅ Structured error reporting with category, message, and actionable suggestions
+   - ⏳ Verify cross-language support (JS, Rust, Zig)
 
 2. **Conditional breakpoints polish**
    - ✅ Server honours condition fields during dry runs
@@ -31,7 +34,7 @@ Status snapshot as of **2025‑11‑22**:
 
 ## ✅ Recently Delivered
 
-- **Unreleased** – Zig adapter (Alpha), Pause execution support
+- **Unreleased** – Zig adapter (Alpha), Pause execution support, Expression evaluation improvements (rich previews, truncation, structured errors)
 - **v0.17.0** – Rust adapter backed by CodeLLDB plus richer stepping responses with inline source context
 - **v0.16.0** – First-class JavaScript adapter with TypeScript detection, js‑debug vendoring, and adapter policy orchestration
 - **v0.15.x** – Self-contained CLI bundle (npx-friendly), proxy diagnostics, Windows CI resiliency
@@ -40,9 +43,9 @@ Status snapshot as of **2025‑11‑22**:
 ## 🔭 Upcoming Milestones
 
 ### Q4 2025
-- Ship GA-level expression evaluation (better previews, richer errors)
+- ✅ Ship GA-level expression evaluation (better previews, richer errors)
 - Tighten conditional breakpoint UX across adapters
-- Expose pause execution through the proxy API
+- ✅ Expose pause execution through the proxy API
 
 ### Q1 2026
 - Adapter-specific hinting for common runtime failures
@@ -85,4 +88,4 @@ Want to help? Start by:
 
 ---
 
-*Last updated: 2025‑11‑22*
+*Last updated: 2025‑11‑25*

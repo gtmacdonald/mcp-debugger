@@ -29,17 +29,39 @@ import {
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
 /**
+ * Constants for expression evaluation preview formatting
+ */
+const PREVIEW_MAX_PROPERTIES = 5;
+const PREVIEW_MAX_STRING_LENGTH = 200;
+const PREVIEW_MAX_ARRAY_ITEMS = 3;
+const PREVIEW_MAX_TOTAL_LENGTH = 4096;
+
+/**
+ * Structured error information for expression evaluation failures
+ */
+export interface EvaluateErrorInfo {
+  category: 'SyntaxError' | 'NameError' | 'TypeError' | 'AttributeError' | 'IndexError' | 'KeyError' | 'ValueError' | 'RuntimeError' | 'Unknown';
+  message: string;
+  suggestion?: string;
+  originalError: string;
+}
+
+/**
  * Result type for evaluate expression operations
  */
 export interface EvaluateResult {
   success: boolean;
   result?: string;
   type?: string;
+  /** Rich preview of the value with expanded properties (when available) */
+  preview?: string;
   variablesReference?: number;
   namedVariables?: number;
   indexedVariables?: number;
   presentationHint?: DebugProtocol.VariablePresentationHint;
   error?: string;
+  /** Structured error information with category and suggestions */
+  errorInfo?: EvaluateErrorInfo;
 }
 
 /**
@@ -1198,6 +1220,323 @@ export class SessionManagerOperations extends SessionManagerData {
   }
 
   /**
+   * Truncate a value string for preview display
+   */
+  private truncateValue(value: string, maxLength: number = PREVIEW_MAX_STRING_LENGTH): string {
+    if (!value) return '';
+    if (value.length <= maxLength) return value;
+    return `${value.substring(0, maxLength)}... (${value.length} chars)`;
+  }
+
+  /**
+   * Build a rich preview string for a complex object by expanding its properties
+   */
+  private async buildObjectPreview(
+    sessionId: string,
+    variablesReference: number,
+    rawResult: string,
+    type?: string,
+    namedVariables?: number,
+    indexedVariables?: number
+  ): Promise<string> {
+    // If no children to expand, return the raw result (possibly truncated)
+    if (variablesReference <= 0) {
+      return this.truncateValue(rawResult, PREVIEW_MAX_STRING_LENGTH);
+    }
+
+    const session = this._getSessionById(sessionId);
+    if (!session.proxyManager || !session.proxyManager.isRunning()) {
+      return this.truncateValue(rawResult, PREVIEW_MAX_STRING_LENGTH);
+    }
+
+    try {
+      // Fetch child variables
+      const response = await session.proxyManager.sendDapRequest<DebugProtocol.VariablesResponse>(
+        'variables',
+        { variablesReference }
+      );
+
+      if (!response?.body?.variables || response.body.variables.length === 0) {
+        return this.truncateValue(rawResult, PREVIEW_MAX_STRING_LENGTH);
+      }
+
+      const variables = response.body.variables;
+      const totalCount = variables.length;
+      const isArray = this.looksLikeArray(type, rawResult, variables);
+
+      if (isArray) {
+        return this.buildArrayPreview(variables, totalCount, indexedVariables);
+      } else {
+        return this.buildDictPreview(variables, totalCount, namedVariables);
+      }
+    } catch (error) {
+      this.logger.debug(`[buildObjectPreview] Failed to expand: ${error}`);
+      return this.truncateValue(rawResult, PREVIEW_MAX_STRING_LENGTH);
+    }
+  }
+
+  /**
+   * Determine if a result looks like an array/list based on type and structure
+   */
+  private looksLikeArray(
+    type?: string,
+    rawResult?: string,
+    variables?: DebugProtocol.Variable[]
+  ): boolean {
+    // Check type hints
+    if (type) {
+      const lowerType = type.toLowerCase();
+      if (lowerType.includes('list') || lowerType.includes('array') ||
+          lowerType.includes('tuple') || lowerType.includes('set') ||
+          lowerType === '[]' || lowerType.match(/^\[.*\]$/)) {
+        return true;
+      }
+    }
+
+    // Check if raw result looks like array
+    if (rawResult && (rawResult.startsWith('[') || rawResult.startsWith('('))) {
+      return true;
+    }
+
+    // Check if all variable names are numeric indices
+    if (variables && variables.length > 0) {
+      const allNumeric = variables.every(v => /^\d+$/.test(v.name));
+      if (allNumeric) return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Build preview for array-like structures
+   */
+  private buildArrayPreview(
+    variables: DebugProtocol.Variable[],
+    fetchedCount: number,
+    totalIndexed?: number
+  ): string {
+    const previewItems: string[] = [];
+    const limit = Math.min(PREVIEW_MAX_ARRAY_ITEMS, variables.length);
+
+    for (let i = 0; i < limit; i++) {
+      const v = variables[i];
+      const valuePreview = this.truncateValue(v.value, 50);
+      previewItems.push(valuePreview);
+    }
+
+    const totalCount = totalIndexed ?? fetchedCount;
+    const remaining = totalCount - limit;
+
+    if (remaining > 0) {
+      return `[${previewItems.join(', ')}, ... (${totalCount} total)]`;
+    } else {
+      return `[${previewItems.join(', ')}]`;
+    }
+  }
+
+  /**
+   * Build preview for object/dict-like structures
+   */
+  private buildDictPreview(
+    variables: DebugProtocol.Variable[],
+    fetchedCount: number,
+    totalNamed?: number
+  ): string {
+    const previewItems: string[] = [];
+    const limit = Math.min(PREVIEW_MAX_PROPERTIES, variables.length);
+
+    // Filter out special/internal properties for cleaner preview
+    const userVariables = variables.filter(v => !this.isInternalProperty(v.name));
+    const displayVars = userVariables.length > 0 ? userVariables : variables;
+    const actualLimit = Math.min(limit, displayVars.length);
+
+    for (let i = 0; i < actualLimit; i++) {
+      const v = displayVars[i];
+      const valuePreview = this.truncateValue(v.value, 50);
+
+      // Format based on whether it has children
+      if (v.variablesReference > 0) {
+        // Has children - show type hint
+        const typeHint = v.type ? ` (${v.type})` : '';
+        previewItems.push(`${v.name}: {...}${typeHint}`);
+      } else {
+        previewItems.push(`${v.name}: ${valuePreview}`);
+      }
+    }
+
+    const totalCount = totalNamed ?? fetchedCount;
+    const remaining = totalCount - actualLimit;
+
+    let preview = `{ ${previewItems.join(', ')}`;
+    if (remaining > 0) {
+      preview += `, ... (${remaining} more)`;
+    }
+    preview += ' }';
+
+    // Final length check
+    if (preview.length > PREVIEW_MAX_TOTAL_LENGTH) {
+      return preview.substring(0, PREVIEW_MAX_TOTAL_LENGTH - 20) + '... (truncated) }';
+    }
+
+    return preview;
+  }
+
+  /**
+   * Check if a property name looks like an internal/special property
+   */
+  private isInternalProperty(name: string): boolean {
+    // Python internals
+    if (name.startsWith('__') && name.endsWith('__')) return true;
+    // JavaScript internals
+    if (name === '__proto__' || name === 'constructor') return true;
+    // Common internal prefixes
+    if (name.startsWith('_') && name.length > 1) return true;
+    return false;
+  }
+
+  /**
+   * Parse an error message and return structured error information with suggestions
+   */
+  private parseEvaluationError(errorMessage: string, expression: string): EvaluateErrorInfo {
+    const originalError = errorMessage;
+
+    // SyntaxError patterns
+    if (errorMessage.includes('SyntaxError')) {
+      const suggestion = this.getSyntaxErrorSuggestion(errorMessage, expression);
+      return {
+        category: 'SyntaxError',
+        message: 'Invalid syntax in expression',
+        suggestion,
+        originalError
+      };
+    }
+
+    // NameError patterns
+    if (errorMessage.includes('NameError') || errorMessage.includes('is not defined')) {
+      const match = errorMessage.match(/name ['\"]?(\w+)['\"]? is not defined/i) ||
+                    errorMessage.match(/['\"]?(\w+)['\"]? is not defined/i);
+      const varName = match ? match[1] : null;
+      return {
+        category: 'NameError',
+        message: varName ? `Variable '${varName}' is not defined` : 'Name not found',
+        suggestion: varName
+          ? `Check spelling of '${varName}'. Use get_local_variables to see available variables in scope.`
+          : 'Use get_local_variables to see available variables in the current scope.',
+        originalError
+      };
+    }
+
+    // TypeError patterns
+    if (errorMessage.includes('TypeError')) {
+      return {
+        category: 'TypeError',
+        message: 'Type mismatch in expression',
+        suggestion: 'Check that operands are compatible types. Use type() to inspect variable types.',
+        originalError
+      };
+    }
+
+    // AttributeError patterns
+    if (errorMessage.includes('AttributeError') || errorMessage.includes('has no attribute')) {
+      const match = errorMessage.match(/has no attribute ['\"]?(\w+)['\"]?/i);
+      const attrName = match ? match[1] : null;
+      return {
+        category: 'AttributeError',
+        message: attrName ? `Attribute '${attrName}' not found` : 'Attribute not found',
+        suggestion: attrName
+          ? `Object does not have attribute '${attrName}'. Use dir(obj) to list available attributes.`
+          : 'Use dir(object) to list available attributes.',
+        originalError
+      };
+    }
+
+    // IndexError patterns
+    if (errorMessage.includes('IndexError') || errorMessage.includes('index out of range')) {
+      return {
+        category: 'IndexError',
+        message: 'Index out of range',
+        suggestion: 'Check the length of the sequence with len() before accessing by index.',
+        originalError
+      };
+    }
+
+    // KeyError patterns
+    if (errorMessage.includes('KeyError')) {
+      const match = errorMessage.match(/KeyError:?\s*['\"]?([^'\"]+)['\"]?/i);
+      const keyName = match ? match[1] : null;
+      return {
+        category: 'KeyError',
+        message: keyName ? `Key '${keyName}' not found` : 'Key not found in dictionary',
+        suggestion: 'Use .keys() or .get(key, default) to safely access dictionary keys.',
+        originalError
+      };
+    }
+
+    // ValueError patterns
+    if (errorMessage.includes('ValueError')) {
+      return {
+        category: 'ValueError',
+        message: 'Invalid value',
+        suggestion: 'Check that the value is appropriate for the operation.',
+        originalError
+      };
+    }
+
+    // RuntimeError patterns
+    if (errorMessage.includes('RuntimeError')) {
+      return {
+        category: 'RuntimeError',
+        message: 'Runtime error during evaluation',
+        suggestion: 'The expression caused a runtime error. Check for recursion limits or invalid operations.',
+        originalError
+      };
+    }
+
+    // Unknown error
+    return {
+      category: 'Unknown',
+      message: 'Expression evaluation failed',
+      suggestion: 'Check the expression syntax and ensure all referenced variables are in scope.',
+      originalError
+    };
+  }
+
+  /**
+   * Generate helpful suggestions for syntax errors
+   */
+  private getSyntaxErrorSuggestion(errorMessage: string, expression: string): string {
+    // Unclosed parenthesis/bracket
+    const openParens = (expression.match(/\(/g) || []).length;
+    const closeParens = (expression.match(/\)/g) || []).length;
+    if (openParens !== closeParens) {
+      return `Mismatched parentheses: ${openParens} opening, ${closeParens} closing.`;
+    }
+
+    const openBrackets = (expression.match(/\[/g) || []).length;
+    const closeBrackets = (expression.match(/\]/g) || []).length;
+    if (openBrackets !== closeBrackets) {
+      return `Mismatched brackets: ${openBrackets} opening, ${closeBrackets} closing.`;
+    }
+
+    // Unclosed string
+    const singleQuotes = (expression.match(/'/g) || []).length;
+    const doubleQuotes = (expression.match(/"/g) || []).length;
+    if (singleQuotes % 2 !== 0) {
+      return 'Unclosed single-quoted string.';
+    }
+    if (doubleQuotes % 2 !== 0) {
+      return 'Unclosed double-quoted string.';
+    }
+
+    // Common typos
+    if (expression.includes('==') && errorMessage.includes('invalid syntax')) {
+      return 'If comparing values, ensure proper spacing around operators.';
+    }
+
+    return 'Check expression syntax. Ensure all parentheses, brackets, and quotes are balanced.';
+  }
+
+  /**
    * Evaluate an expression in the context of the current debug session.
    * The debugger must be paused for evaluation to work.
    * Expressions CAN and SHOULD be able to modify program state (this is a feature).
@@ -1314,13 +1653,25 @@ export class SessionManagerOperations extends SessionManagerData {
       // Process response
       if (response && response.body) {
         const body = response.body;
+        const rawResult = body.result || '';
+        const variablesReference = body.variablesReference || 0;
 
-        // Note: debugpy automatically truncates collections at 300 items for performance
+        // Build rich preview for complex objects
+        const preview = await this.buildObjectPreview(
+          sessionId,
+          variablesReference,
+          rawResult,
+          body.type,
+          body.namedVariables,
+          body.indexedVariables
+        );
+
         const result: EvaluateResult = {
           success: true,
-          result: body.result || '', // Default to empty string if no result
-          type: body.type, // Optional, can be undefined
-          variablesReference: body.variablesReference || 0, // Default to 0 (no children)
+          result: rawResult,
+          type: body.type,
+          preview,
+          variablesReference,
           namedVariables: body.namedVariables,
           indexedVariables: body.indexedVariables,
           presentationHint: body.presentationHint,
@@ -1334,7 +1685,8 @@ export class SessionManagerOperations extends SessionManagerData {
           expression: this.truncateForLog(expression, 100),
           frameId,
           context,
-          result: this.truncateForLog(result.result || '', 1000),
+          result: this.truncateForLog(rawResult, 1000),
+          preview: this.truncateForLog(preview, 500),
           type: result.type,
           variablesReference: result.variablesReference,
           namedVariables: result.namedVariables,
@@ -1343,8 +1695,8 @@ export class SessionManagerOperations extends SessionManagerData {
         });
 
         this.logger.info(
-          `[SM evaluateExpression ${sessionId}] Evaluation successful. Result: "${this.truncateForLog(
-            result.result || '',
+          `[SM evaluateExpression ${sessionId}] Evaluation successful. Preview: "${this.truncateForLog(
+            preview,
             200
           )}", Type: ${result.type}, VarRef: ${result.variablesReference}`
         );
@@ -1357,7 +1709,10 @@ export class SessionManagerOperations extends SessionManagerData {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Log the error
+      // Parse error into structured format with suggestions
+      const errorInfo = this.parseEvaluationError(errorMessage, expression);
+
+      // Log the error with structured info
       this.logger.error('debug:evaluate', {
         event: 'error',
         sessionId,
@@ -1365,25 +1720,20 @@ export class SessionManagerOperations extends SessionManagerData {
         expression: this.truncateForLog(expression, 100),
         frameId,
         context,
-        error: errorMessage,
+        errorCategory: errorInfo.category,
+        errorMessage: errorInfo.message,
+        suggestion: errorInfo.suggestion,
+        originalError: errorMessage,
         timestamp: Date.now(),
       });
 
       this.logger.error(`[SM evaluateExpression ${sessionId}] Error evaluating expression:`, error);
 
-      // Determine error type for better user feedback
-      let userError = errorMessage;
-      if (errorMessage.includes('SyntaxError')) {
-        userError = `Syntax error in expression: ${errorMessage}`;
-      } else if (errorMessage.includes('NameError')) {
-        userError = `Name not found: ${errorMessage}`;
-      } else if (errorMessage.includes('TypeError')) {
-        userError = `Type error: ${errorMessage}`;
-      } else if (errorMessage.includes('frame')) {
-        userError = `Invalid frame context: ${errorMessage}`;
-      }
-
-      return { success: false, error: userError };
+      return {
+        success: false,
+        error: errorInfo.message,
+        errorInfo
+      };
     }
   }
 
