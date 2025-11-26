@@ -297,8 +297,8 @@ export class ZigAdapter extends EventEmitter implements IDebugAdapter {
     // ===== Adapter Configuration =====
 
     buildAdapterCommand(config: AdapterConfig): AdapterCommand {
-        // lldb-dap uses stdio for communication by default
-        // No need for --port or --host arguments
+        // lldb-dap needs --connection flag to listen for TCP connections
+        // Format: --connection listen://host:port
 
         // Filter out undefined values from process.env
         const env: Record<string, string> = {};
@@ -310,7 +310,10 @@ export class ZigAdapter extends EventEmitter implements IDebugAdapter {
 
         return {
             command: config.executablePath,
-            args: [],  // Empty args - lldb-dap uses stdio by default
+            args: [
+                '--connection',
+                `listen://${config.adapterHost}:${config.adapterPort}`
+            ],
             env
         };
     }

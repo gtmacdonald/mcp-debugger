@@ -132,7 +132,7 @@ describe('ZigAdapter', () => {
         expect(result.valid).toBe(true);
     });
 
-    it('builds adapter command with stdio (no port)', () => {
+    it('builds adapter command with TCP listen connection', () => {
         const adapter = new ZigAdapter(createDependencies());
         const cmd = adapter.buildAdapterCommand({
             sessionId: 's1',
@@ -145,7 +145,7 @@ describe('ZigAdapter', () => {
         });
 
         expect(cmd.command).toBe('/opt/homebrew/opt/llvm/bin/lldb-dap');
-        expect(cmd.args).toEqual([]); // lldb-dap uses stdio, no args needed
+        expect(cmd.args).toEqual(['--connection', 'listen://127.0.0.1:9000']);
         expect(cmd.env).toBeDefined();
     });
 
