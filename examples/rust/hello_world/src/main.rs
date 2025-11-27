@@ -31,10 +31,14 @@ fn main() {
         println!("Rust is awesome!");
     }
     
-    // Loop for stepping
-    for i in 0..3 {
-        println!("Iteration: {}", i);
+    // Loop for stepping and conditional breakpoint testing
+    let mut loop_total: i32 = 0;
+    for i in 0..10 {
+        let loop_value = i * 2;  // Line 37: Set conditional breakpoint here with "i > 5"
+        loop_total += loop_value;
+        println!("Loop: i={}, value={}, total={}", i, loop_value, loop_total);
     }
+    println!("Loop total: {}", loop_total);
 }
 
 fn calculate_sum(a: i32, b: i32) -> i32 {

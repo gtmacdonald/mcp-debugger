@@ -119,13 +119,13 @@ Closes an active debugging session.
 
 ### set_breakpoint
 
-Sets a breakpoint in a source file.
+Sets a breakpoint in a source file, optionally with a condition.
 
 **Parameters:**
 - `sessionId` (string, required): The ID of the debug session.
 - `file` (string, required): Path to the source file (absolute or relative to project root).
 - `line` (number, required): Line number where to set breakpoint (1-indexed).
-- `condition` (string, optional): Conditional expression for the breakpoint *(not verified to work)*.
+- `condition` (string, optional): Conditional expression that must evaluate to true for the breakpoint to stop execution.
 
 **Response:**
 ```json
@@ -135,6 +135,7 @@ Sets a breakpoint in a source file.
   "file": "C:\\path\\to\\debug-mcp-server\\examples\\python_simple_swap\\swap_vars.py",
   "line": 9,
   "verified": false,
+  "condition": "i > 5",
   "message": "Breakpoint set at C:\\path\\to\\debug-mcp-server\\examples\\python_simple_swap\\swap_vars.py:9",
   "context": {
     "lineContent": "    a = b  # Bug: loses original value of 'a'",
@@ -149,11 +150,118 @@ Sets a breakpoint in a source file.
 }
 ```
 
+**Response Fields for Conditional Breakpoints:**
+- `condition` (string): The condition expression that was set (only present if a condition was specified)
+- `conditionVerified` (boolean, optional): Whether the debug adapter validated the condition syntax
+- `conditionError` (string, optional): Error message if the condition syntax is invalid
+
 **Important Notes:**
 - Breakpoints show `"verified": false` until debugging starts
 - The response includes the absolute path even if you provide a relative path
 - Setting breakpoints on non-executable lines (comments, blank lines, declarations) may cause unexpected behavior
 - Executable lines that work well: assignments, function calls, conditionals, returns
+
+### Conditional Breakpoints
+
+Conditional breakpoints allow you to stop execution only when a specific condition is true. This is useful for debugging loops or code that executes many times but you only care about specific situations.
+
+**Example - Stop when loop counter exceeds 5:**
+```json
+{
+  "sessionId": "a4d1acc8-84a8-44fe-a13e-28628c5b33c7",
+  "file": "script.py",
+  "line": 10,
+  "condition": "i > 5"
+}
+```
+
+#### Language-Specific Condition Syntax
+
+Conditions are evaluated by the debug adapter using the language's native expression syntax. Here are examples for each supported language:
+
+**Python (debugpy):**
+```
+# Simple comparisons
+"i > 5"
+"count == 10"
+"name == 'test'"
+
+# Boolean operators (Python syntax)
+"x > 5 and y < 10"
+"status == 'error' or retry_count >= 3"
+"not is_valid"
+
+# Type checking
+"isinstance(obj, MyClass)"
+"type(value).__name__ == 'dict'"
+
+# Collection checks
+"len(items) > 0"
+"'key' in my_dict"
+```
+
+**JavaScript/Node.js (js-debug):**
+```
+// Simple comparisons
+"i > 5"
+"count === 10"
+"name === 'test'"
+
+// Boolean operators (JavaScript syntax)
+"x > 5 && y < 10"
+"status === 'error' || retryCount >= 3"
+"!isValid"
+
+// Type checking
+"typeof value === 'object'"
+"Array.isArray(items)"
+
+// Collection checks
+"items.length > 0"
+"'key' in obj"
+```
+
+**Rust (CodeLLDB) and Zig (lldb-dap):**
+
+Both Rust and Zig use LLDB as their debug adapter, which uses C-style expressions:
+```
+// Simple comparisons
+"i > 5"
+"count == 10"
+
+// Boolean operators (C-style)
+"x > 5 && y < 10"
+"status == 1 || retry_count >= 3"
+"!is_valid"
+
+// Note: String comparisons in LLDB require C functions
+"strcmp(name, \"test\") == 0"
+
+// Numeric comparisons work naturally
+"value >= 100"
+"index < array_len"
+```
+
+#### Common Mistakes
+
+1. **Using wrong boolean operators:**
+   - Python: Use `and`/`or`/`not`, not `&&`/`||`/`!`
+   - JavaScript/Rust/Zig: Use `&&`/`||`/`!`, not `and`/`or`/`not`
+
+2. **Using wrong equality operator:**
+   - JavaScript: Use `===` for strict equality, not `==`
+   - Python/Rust/Zig/C: Use `==`
+
+3. **Invalid syntax returns `verified: false`:**
+   ```json
+   {
+     "success": true,
+     "verified": false,
+     "condition": "i == 5 and total > 0",
+     "message": "Breakpoint set at script.js:10"
+   }
+   ```
+   If you see `verified: false` with a condition, the syntax may be invalid for that language.
 
 ---
 
@@ -716,4 +824,4 @@ All tools follow consistent error patterns:
 
 ---
 
-*Last updated: 2025-10-10 based on actual testing with mcp-debugger v0.15.4*
+*Last updated: 2025-11-26 based on actual testing with mcp-debugger v0.15.4. Conditional breakpoints verified for Python, JavaScript, Rust (CodeLLDB), and Zig (lldb-dap).*
