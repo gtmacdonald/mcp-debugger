@@ -6,6 +6,7 @@
 - [x] Robustify `conditional-breakpoints.test.ts` to skip if `codelldb` missing
 - [x] Fix Zig unit test platform assumptions
 - [x] Fix TypeScript lint error in `CustomLaunchRequestArguments`
-- [x] Improve `SessionManager.startDebugging` to fail fast on adapter exit <!-- New -->
-- [ ] Push changes to CI
-- [ ] Verify CI pass
+- [x] Improve `SessionManager.startDebugging` to fail fast on adapter exit
+- [x] Fix memory leak in `SessionManager.startDebugging` <!-- New -->
+- [x] Push changes to CI
+- [ ] Verify CI pass (User to confirm)

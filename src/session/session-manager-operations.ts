@@ -588,6 +588,7 @@ export class SessionManagerOperations extends SessionManagerData {
           const handleStopped = () => {
             if (!resolved) {
               resolved = true;
+              cleanup();
               this.logger.info(`[SessionManager] Session ${sessionId} stopped on entry`);
               resolve();
             }
@@ -599,6 +600,7 @@ export class SessionManagerOperations extends SessionManagerData {
               : !dapLaunchArgs?.stopOnEntry;
             if (!resolved && readyOnRunning) {
               resolved = true;
+              cleanup();
               this.logger.info(
                 `[SessionManager] Session ${sessionId} running (stopOnEntry=${dapLaunchArgs?.stopOnEntry ?? false})`
               );
