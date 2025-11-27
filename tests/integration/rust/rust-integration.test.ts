@@ -18,20 +18,85 @@ import os from 'os';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const currentFileURL = import.meta.url;
+const currentFilePath = fileURLToPath(currentFileURL);
+const currentDirName = path.dirname(currentFilePath);
+import { spawnSync } from 'node:child_process';
+
+/**
+ * Check if CodeLLDB is available for Rust debugging
+ */
+function checkCodeLLDBAvailable(): { available: boolean; path?: string } {
+  // Check CODELLDB_PATH environment variable first
+  const envPath = process.env.CODELLDB_PATH;
+  if (envPath && fs.existsSync(envPath)) {
+    return { available: true, path: envPath };
+  }
+
+  // Check vendored CodeLLDB in packages/adapter-rust/vendor
+  const arch = process.arch;
+  const platformDir = arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
+  // Note: relative path from tests/integration/rust/ to packages/adapter-rust/vendor
+  const vendoredPath = path.resolve(currentDirName, '../../../packages/adapter-rust/vendor/codelldb', platformDir, 'adapter', 'codelldb');
+  if (fs.existsSync(vendoredPath)) {
+    return { available: true, path: vendoredPath };
+  }
+
+  // Check common VS Code extension locations
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  const extensionPaths = [
+    path.join(homeDir, '.vscode', 'extensions'),
+    path.join(homeDir, '.vscode-server', 'extensions'),
+  ];
+
+  for (const extPath of extensionPaths) {
+    if (!fs.existsSync(extPath)) continue;
+
+    try {
+      const entries = fs.readdirSync(extPath);
+      for (const entry of entries) {
+        if (entry.startsWith('vadimcn.vscode-lldb-')) {
+          const adapterPath = path.join(extPath, entry, 'adapter', 'codelldb');
+          if (fs.existsSync(adapterPath)) {
+            return { available: true, path: adapterPath };
+          }
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // Check PATH
+  try {
+    const result = spawnSync('which', ['codelldb'], { timeout: 5000, stdio: 'pipe' });
+    if (result.status === 0) {
+      return { available: true, path: result.stdout?.toString().trim() };
+    }
+  } catch {
+    // Not found
+  }
+
+  return { available: false };
+}
 
 describe('Rust Adapter Integration', () => {
   let sessionManager: SessionManager;
   let sessionId: string;
   const rustBinaryPath = path.join(__dirname, '../../../examples/rust/hello_world/target/debug/hello_world');
   const rustSourcePath = path.join(__dirname, '../../../examples/rust/hello_world/src/main.rs');
+  const codelldbCheck = checkCodeLLDBAvailable();
 
   beforeAll(async () => {
     // Check if Rust binary is built
     if (!fs.existsSync(rustBinaryPath)) {
       console.warn('⚠️  Rust hello_world not built. Run: cd examples/rust/hello_world && cargo build');
       console.warn('   Skipping full integration tests...');
+      return;
+    }
+
+    if (!codelldbCheck.available) {
+      console.warn('⚠️  CodeLLDB not found. Skipping Rust integration tests.');
       return;
     }
 
@@ -58,8 +123,8 @@ describe('Rust Adapter Integration', () => {
   });
 
   it('should create a Rust debug session', async () => {
-    if (!fs.existsSync(rustBinaryPath)) {
-      console.log('⏭️  Skipping: Rust binary not built');
+    if (!fs.existsSync(rustBinaryPath) || !codelldbCheck.available) {
+      console.log('⏭️  Skipping: Prerequisites not met');
       return;
     }
 
@@ -76,7 +141,7 @@ describe('Rust Adapter Integration', () => {
   });
 
   it('should start debugging the Rust binary', async () => {
-    if (!fs.existsSync(rustBinaryPath) || !sessionId) {
+    if (!fs.existsSync(rustBinaryPath) || !sessionId || !codelldbCheck.available) {
       console.log('⏭️  Skipping: Prerequisites not met');
       return;
     }
@@ -104,7 +169,7 @@ describe('Rust Adapter Integration', () => {
   }, 30000);
 
   it('should set a breakpoint in the Rust source file', async () => {
-    if (!fs.existsSync(rustBinaryPath) || !sessionId) {
+    if (!fs.existsSync(rustBinaryPath) || !sessionId || !codelldbCheck.available) {
       console.log('⏭️  Skipping: Prerequisites not met');
       return;
     }
@@ -126,7 +191,7 @@ describe('Rust Adapter Integration', () => {
   }, 15000);
 
   it('should continue execution and hit breakpoint', async () => {
-    if (!fs.existsSync(rustBinaryPath) || !sessionId) {
+    if (!fs.existsSync(rustBinaryPath) || !sessionId || !codelldbCheck.available) {
       console.log('⏭️  Skipping: Prerequisites not met');
       return;
     }
@@ -146,7 +211,7 @@ describe('Rust Adapter Integration', () => {
   }, 15000);
 
   it('should get stack trace', async () => {
-    if (!fs.existsSync(rustBinaryPath) || !sessionId) {
+    if (!fs.existsSync(rustBinaryPath) || !sessionId || !codelldbCheck.available) {
       console.log('⏭️  Skipping: Prerequisites not met');
       return;
     }
@@ -173,7 +238,7 @@ describe('Rust Adapter Integration', () => {
   }, 10000);
 
   it('should evaluate expressions', async () => {
-    if (!fs.existsSync(rustBinaryPath) || !sessionId) {
+    if (!fs.existsSync(rustBinaryPath) || !sessionId || !codelldbCheck.available) {
       console.log('⏭️  Skipping: Prerequisites not met');
       return;
     }

@@ -2,16 +2,16 @@
  * Core session management functionality including lifecycle, state management,
  * and event handling.
  */
-import { 
+import {
   SessionState, SessionLifecycleState, DebugLanguage, DebugSessionInfo, mapLegacyState
 } from '@debugmcp/shared';
 import { SessionStore, ManagedSession } from './session-store.js';
-import { DebugProtocol } from '@vscode/debugprotocol'; 
+import { DebugProtocol } from '@vscode/debugprotocol';
 import path from 'path';
 import os from 'os';
-import { 
-  IFileSystem, 
-  INetworkManager, 
+import {
+  IFileSystem,
+  INetworkManager,
   ILogger,
   IEnvironment
 } from '@debugmcp/shared';
@@ -25,6 +25,7 @@ import { IAdapterRegistry } from '@debugmcp/shared';
 export interface CustomLaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   stopOnEntry?: boolean;
   justMyCode?: boolean;
+  args?: string[];
   // Add other common custom arguments here if needed, e.g., console, cwd, env
 }
 
@@ -80,7 +81,7 @@ export class SessionManagerCore {
 
   protected defaultDapLaunchArgs: Partial<CustomLaunchRequestArguments>;
   protected dryRunTimeoutMs: number;
-  
+
   // WeakMap to store event handlers for cleanup
   protected sessionEventHandlers = new WeakMap<ManagedSession, Map<string, (...args: unknown[]) => void>>();
 
@@ -99,7 +100,7 @@ export class SessionManagerCore {
     this.sessionStoreFactory = dependencies.sessionStoreFactory;
     this.debugTargetLauncher = dependencies.debugTargetLauncher;
     this.adapterRegistry = dependencies.adapterRegistry;
-    
+
     this.sessionStore = this.sessionStoreFactory.create();
     this.logDirBase = config.logDirBase || path.join(os.tmpdir(), 'debug-mcp-server', 'sessions');
     this.defaultDapLaunchArgs = config.defaultDapLaunchArgs || {
@@ -107,7 +108,7 @@ export class SessionManagerCore {
       justMyCode: true
     };
     this.dryRunTimeoutMs = config.dryRunTimeoutMs || 10000;
-    
+
     this.fileSystem.ensureDirSync(this.logDirBase);
     this.logger.info(`[SessionManager] Initialized. Session logs will be stored in: ${this.logDirBase}`);
   }
@@ -134,10 +135,10 @@ export class SessionManagerCore {
   protected _updateSessionState(session: ManagedSession, newState: SessionState): void {
     if (session.state === newState) return;
     this.logger.info(`[SM _updateSessionState ${session.id}] State change: ${session.state} -> ${newState}`);
-    
+
     // Update legacy state
     this.sessionStore.updateState(session.id, newState);
-    
+
     // Update new state model based on legacy state
     const { lifecycle, execution } = mapLegacyState(newState);
     this.sessionStore.update(session.id, {
@@ -146,22 +147,22 @@ export class SessionManagerCore {
     });
   }
 
-  public getSession(sessionId: string): ManagedSession | undefined { 
-    return this.sessionStore.get(sessionId); 
+  public getSession(sessionId: string): ManagedSession | undefined {
+    return this.sessionStore.get(sessionId);
   }
-  
-  public getAllSessions(): DebugSessionInfo[] { 
+
+  public getAllSessions(): DebugSessionInfo[] {
     return this.sessionStore.getAll();
   }
-  
+
   async closeSession(sessionId: string): Promise<boolean> {
-    const session = this.sessionStore.get(sessionId); 
+    const session = this.sessionStore.get(sessionId);
     if (!session) {
       this.logger.warn(`[SESSION_CLOSE_FAIL] Session not found: ${sessionId}`);
       return false;
     }
     this.logger.info(`Closing debug session: ${sessionId}. Active proxy: ${session.proxyManager ? 'yes' : 'no'}`);
-    
+
     if (session.proxyManager) {
       // Always cleanup listeners first
       try {
@@ -170,25 +171,25 @@ export class SessionManagerCore {
         this.logger.error(`[SessionManager] Critical error during listener cleanup for session ${sessionId}:`, cleanupError);
         // Continue with session closure despite cleanup errors
       }
-      
+
       // Then stop the proxy
       try {
         await session.proxyManager.stop();
-      } catch (error: unknown) { 
+      } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(`[SessionManager] Error stopping proxy for session ${sessionId}:`, message);
       } finally {
         session.proxyManager = undefined;
       }
     }
-    
+
     this._updateSessionState(session, SessionState.STOPPED);
-    
+
     // Also update session lifecycle to TERMINATED
     this.sessionStore.update(sessionId, {
       sessionLifecycle: SessionLifecycleState.TERMINATED
     });
-    
+
     this.logger.info(`Session ${sessionId} marked as STOPPED/TERMINATED.`);
     return true;
   }
@@ -203,7 +204,7 @@ export class SessionManagerCore {
   }
 
   protected setupProxyEventHandlers(
-    session: ManagedSession, 
+    session: ManagedSession,
     proxyManager: IProxyManager,
     effectiveLaunchArgs: Partial<CustomLaunchRequestArguments>
   ): void {
@@ -214,7 +215,7 @@ export class SessionManagerCore {
     const handleStopped = (threadId: number, reason: string) => {
       this.logger.debug(`[SessionManager] 'stopped' event handler called for session ${sessionId}`);
       this.logger.info(`[ProxyManager ${sessionId}] Stopped event: thread=${threadId}, reason=${reason}`);
-      
+
       // Log debug state change with structured logging
       // Note: We don't have location info at this point, but that could be added later if needed
       this.logger.info('debug:state', {
@@ -225,7 +226,7 @@ export class SessionManagerCore {
         threadId: threadId,
         timestamp: Date.now()
       });
-      
+
       // Handle auto-continue for stopOnEntry=false
       if (!effectiveLaunchArgs.stopOnEntry && reason === 'entry') {
         this.logger.info(`[ProxyManager ${sessionId}] Auto-continuing (stopOnEntry=false)`);
@@ -244,7 +245,7 @@ export class SessionManagerCore {
     const handleContinued = () => {
       this.logger.debug(`[SessionManager] 'continued' event handler called for session ${sessionId}`);
       this.logger.info(`[ProxyManager ${sessionId}] Continued event`);
-      
+
       // Log debug state change with structured logging
       this.logger.info('debug:state', {
         event: 'running',
@@ -271,7 +272,7 @@ export class SessionManagerCore {
     const handleTerminated = () => {
       this.logger.debug(`[SessionManager] 'terminated' event handler called for session ${sessionId}`);
       this.logger.info(`[ProxyManager ${sessionId}] Terminated event`);
-      
+
       // Log debug state change with structured logging
       this.logger.info('debug:state', {
         event: 'stopped',
@@ -279,9 +280,9 @@ export class SessionManagerCore {
         sessionName: session.name,
         timestamp: Date.now()
       });
-      
+
       this._updateSessionState(session, SessionState.STOPPED);
-      
+
       // Clean up listeners since proxy is gone
       this.cleanupProxyEventHandlers(session, proxyManager);
       session.proxyManager = undefined;
@@ -341,7 +342,7 @@ export class SessionManagerCore {
       if (session.state !== SessionState.STOPPED && session.state !== SessionState.ERROR) {
         this._updateSessionState(session, SessionState.ERROR);
       }
-      
+
       // Clean up listeners since proxy is gone
       this.cleanupProxyEventHandlers(session, proxyManager);
       session.proxyManager = undefined;
@@ -366,10 +367,10 @@ export class SessionManagerCore {
       this.logger.debug(`[SessionManager] No handlers found for session ${session.id}`);
       return;
     }
-    
+
     let removedCount = 0;
     let failedCount = 0;
-    
+
     handlers.forEach((handler, eventName) => {
       try {
         this.logger.debug(`[SessionManager] Removing ${eventName} listener for session ${session.id}`);
@@ -381,7 +382,7 @@ export class SessionManagerCore {
         // Continue cleanup despite errors
       }
     });
-    
+
     this.logger.info(`[SessionManager] Cleanup complete for session ${session.id}: ${removedCount} removed, ${failedCount} failed`);
     this.sessionEventHandlers.delete(session);
   }
