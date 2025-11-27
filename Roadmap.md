@@ -21,7 +21,7 @@ Status snapshot as of **2025‑11‑26**:
    - ✅ Cross-language error handling (JS: ReferenceError/SyntaxError, LLDB: undeclared identifier)
    - ✅ JavaScript adapter verified working with js-debug
    - ✅ Zig adapter verified working with lldb-dap
-   - ⏳ Rust adapter needs verification (CodeLLDB)
+   - ✅ Rust adapter verified working with CodeLLDB
 
 2. **Conditional breakpoints polish**
    - ✅ Server honours condition fields during dry runs
