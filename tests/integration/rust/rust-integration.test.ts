@@ -35,11 +35,27 @@ function checkCodeLLDBAvailable(): { available: boolean; path?: string } {
 
   // Check vendored CodeLLDB in packages/adapter-rust/vendor
   const arch = process.arch;
-  const platformDir = arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
-  // Note: relative path from tests/integration/rust/ to packages/adapter-rust/vendor
-  const vendoredPath = path.resolve(currentDirName, '../../../packages/adapter-rust/vendor/codelldb', platformDir, 'adapter', 'codelldb');
-  if (fs.existsSync(vendoredPath)) {
-    return { available: true, path: vendoredPath };
+  const platform = process.platform;
+  let platformDir = '';
+
+  if (platform === 'darwin') {
+    platformDir = arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
+  } else if (platform === 'linux') {
+    platformDir = arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
+  } else if (platform === 'win32') {
+    platformDir = 'win32-x64';
+  }
+
+  if (platformDir) {
+    // Note: relative path from tests/integration/rust/ to packages/adapter-rust/vendor
+    const vendoredPath = path.resolve(currentDirName, '../../../packages/adapter-rust/vendor/codelldb', platformDir, 'adapter', 'codelldb');
+    if (fs.existsSync(vendoredPath)) {
+      return { available: true, path: vendoredPath };
+    }
+    // Also check for .exe extension on Windows
+    if (platform === 'win32' && fs.existsSync(vendoredPath + '.exe')) {
+      return { available: true, path: vendoredPath + '.exe' };
+    }
   }
 
   // Check common VS Code extension locations
@@ -130,7 +146,8 @@ describe('Rust Adapter Integration', () => {
 
     const session = await sessionManager.createSession({
       language: DebugLanguage.RUST,
-      name: 'Test Rust Session'
+      name: 'Test Rust Session',
+      executablePath: codelldbCheck.path
     });
 
     expect(session).toBeDefined();
@@ -159,6 +176,13 @@ describe('Rust Adapter Integration', () => {
 
       const session = sessionManager.getSession(sessionId);
       expect(session).toBeDefined();
+
+      if (session?.state === 'error') {
+        console.error('❌ Session in ERROR state. Check logs for details.');
+        // Try to get more info if possible
+        console.error('Session details:', JSON.stringify(session, null, 2));
+      }
+
       expect(session?.state).toMatch(/initializing|running|paused/);
 
       console.log('✅ Rust debugging session started successfully');

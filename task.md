@@ -7,6 +7,7 @@
 - [x] Fix Zig unit test platform assumptions
 - [x] Fix TypeScript lint error in `CustomLaunchRequestArguments`
 - [x] Improve `SessionManager.startDebugging` to fail fast on adapter exit
-- [x] Fix memory leak in `SessionManager.startDebugging` <!-- New -->
+- [x] Fix memory leak in `SessionManager.startDebugging`
+- [x] Fix Rust integration test platform detection and path passing <!-- New -->
 - [x] Push changes to CI
 - [ ] Verify CI pass (User to confirm)
