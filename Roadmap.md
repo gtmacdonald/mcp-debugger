@@ -4,20 +4,30 @@ This document captures the forward-looking plan for the debugger and highlights 
 
 ## 🎯 Active Feature Work
 
-Status snapshot as of **2025‑11‑25**:
+Status snapshot as of **2025‑11‑26**:
 
 ### High priority
 
 1. **Expression evaluation parity**
-   - ✅ Python sessions now support `evaluate_expression`
+
+   The `evaluate_expression` MCP tool allows AI agents to inspect variables and evaluate
+   expressions in a paused debug session (similar to a debugger's watch window or REPL).
+   This feature must work consistently across all supported language adapters.
+
+   - ✅ Python sessions support `evaluate_expression` via debugpy
    - ✅ Rich object previews with automatic property expansion (depth 1, up to 5 properties)
    - ✅ Smart truncation for large results (200 char strings, 3 array items preview)
    - ✅ Structured error reporting with category, message, and actionable suggestions
-   - ⏳ Verify cross-language support (JS, Rust, Zig)
+   - ✅ Cross-language error handling (JS: ReferenceError/SyntaxError, LLDB: undeclared identifier)
+   - ✅ JavaScript adapter verified working with js-debug
+   - ✅ Zig adapter verified working with lldb-dap
+   - ⏳ Rust adapter needs verification (CodeLLDB)
 
 2. **Conditional breakpoints polish**
    - ✅ Server honours condition fields during dry runs
-   - ⏳ Improve verification feedback and bring feature to every adapter (JS, Python)
+   - ✅ Conditional breakpoints verified working in Python (debugpy) and JavaScript (js-debug)
+   - ✅ Added `conditionVerified` and `conditionError` fields to breakpoint response
+   - ⏳ Pre-validation of condition syntax (some adapters only fail at runtime)
 
 ### Medium priority
 
@@ -34,7 +44,7 @@ Status snapshot as of **2025‑11‑25**:
 
 ## ✅ Recently Delivered
 
-- **Unreleased** – Zig adapter (Alpha), Pause execution support, Expression evaluation improvements (rich previews, truncation, structured errors)
+- **Unreleased** – Zig adapter (Alpha), Pause execution support, Expression evaluation improvements (rich previews, truncation, structured errors), Cross-language error handling for JS/Zig adapters, Conditional breakpoint verification feedback (`conditionVerified`, `conditionError` fields)
 - **v0.17.0** – Rust adapter backed by CodeLLDB plus richer stepping responses with inline source context
 - **v0.16.0** – First-class JavaScript adapter with TypeScript detection, js‑debug vendoring, and adapter policy orchestration
 - **v0.15.x** – Self-contained CLI bundle (npx-friendly), proxy diagnostics, Windows CI resiliency

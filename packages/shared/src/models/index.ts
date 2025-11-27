@@ -149,6 +149,10 @@ export interface Breakpoint {
   verified: boolean;
   /** Validation message from DAP adapter */
   message?: string;
+  /** Whether the condition expression was validated (only set if condition is provided) */
+  conditionVerified?: boolean;
+  /** Error message if condition validation failed */
+  conditionError?: string;
 }
 
 /**

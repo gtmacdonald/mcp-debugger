@@ -591,6 +591,10 @@ export class DebugMcpServer {
                       line: breakpoint.line,
                       verified: breakpoint.verified,
                       message: breakpoint.message || `Breakpoint set at ${breakpoint.file}:${breakpoint.line}`,
+                      // Include condition info if provided
+                      condition: breakpoint.condition || undefined,
+                      conditionVerified: breakpoint.conditionVerified,
+                      conditionError: breakpoint.conditionError || undefined,
                       // Only add warning if there's a message from debugpy (indicating a problem)
                       warning: breakpoint.message || undefined,
                       // Include context if available

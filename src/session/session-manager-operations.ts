@@ -40,7 +40,16 @@ const PREVIEW_MAX_TOTAL_LENGTH = 4096;
  * Structured error information for expression evaluation failures
  */
 export interface EvaluateErrorInfo {
-  category: 'SyntaxError' | 'NameError' | 'TypeError' | 'AttributeError' | 'IndexError' | 'KeyError' | 'ValueError' | 'RuntimeError' | 'Unknown';
+  category:
+    // Python errors
+    | 'SyntaxError' | 'NameError' | 'TypeError' | 'AttributeError'
+    | 'IndexError' | 'KeyError' | 'ValueError' | 'RuntimeError'
+    // JavaScript errors
+    | 'ReferenceError' | 'RangeError'
+    // LLDB/native debugger errors (Zig, Rust)
+    | 'UndeclaredIdentifier' | 'NoMember' | 'ExpressionParseError' | 'LLDBError'
+    // Generic fallback
+    | 'Unknown';
   message: string;
   suggestion?: string;
   originalError: string;
@@ -819,9 +828,28 @@ export class SessionManagerOperations extends SessionManagerData {
           newBreakpoint.verified = bpInfo.verified;
           newBreakpoint.line = bpInfo.line || newBreakpoint.line;
           newBreakpoint.message = bpInfo.message; // Capture validation message
+
+          // Determine condition verification status
+          // If a condition was provided, check if the adapter accepted it
+          if (newBreakpoint.condition) {
+            // If breakpoint is verified, we assume condition is syntactically valid
+            // (actual runtime evaluation may still fail for undefined variables)
+            if (bpInfo.verified) {
+              newBreakpoint.conditionVerified = true;
+            } else {
+              // If not verified and there's a message, it's likely a condition error
+              // Common messages: "Unbound breakpoint" (js-debug), condition syntax errors
+              newBreakpoint.conditionVerified = false;
+              if (bpInfo.message) {
+                newBreakpoint.conditionError = bpInfo.message;
+              }
+            }
+          }
+
           this.logger.info(
-            `[SessionManager] Breakpoint ${bpId} sent and response received. Verified: ${newBreakpoint.verified}${bpInfo.message ? `, Message: ${bpInfo.message}` : ''
-            }`
+            `[SessionManager] Breakpoint ${bpId} sent and response received. Verified: ${newBreakpoint.verified}` +
+            `${bpInfo.message ? `, Message: ${bpInfo.message}` : ''}` +
+            `${newBreakpoint.condition ? `, ConditionVerified: ${newBreakpoint.conditionVerified}` : ''}`
           );
 
           // Log breakpoint verification with structured logging
@@ -834,6 +862,8 @@ export class SessionManagerOperations extends SessionManagerData {
               file: newBreakpoint.file,
               line: newBreakpoint.line,
               verified: true,
+              condition: newBreakpoint.condition,
+              conditionVerified: newBreakpoint.conditionVerified,
               timestamp: Date.now(),
             });
           }
@@ -1400,8 +1430,8 @@ export class SessionManagerOperations extends SessionManagerData {
   private parseEvaluationError(errorMessage: string, expression: string): EvaluateErrorInfo {
     const originalError = errorMessage;
 
-    // SyntaxError patterns
-    if (errorMessage.includes('SyntaxError')) {
+    // SyntaxError patterns (Python, JavaScript, and others)
+    if (errorMessage.includes('SyntaxError') || errorMessage.includes('Unexpected token')) {
       const suggestion = this.getSyntaxErrorSuggestion(errorMessage, expression);
       return {
         category: 'SyntaxError',
@@ -1411,7 +1441,21 @@ export class SessionManagerOperations extends SessionManagerData {
       };
     }
 
-    // NameError patterns
+    // ReferenceError patterns (JavaScript) - must check before NameError since it also contains "is not defined"
+    if (errorMessage.includes('ReferenceError')) {
+      const match = errorMessage.match(/ReferenceError:\s*(\w+)\s+is not defined/i);
+      const varName = match ? match[1] : null;
+      return {
+        category: 'ReferenceError',
+        message: varName ? `Variable '${varName}' is not defined` : 'Reference error',
+        suggestion: varName
+          ? `Check spelling of '${varName}'. Use get_local_variables to see available variables in scope.`
+          : 'Use get_local_variables to see available variables in the current scope.',
+        originalError
+      };
+    }
+
+    // NameError patterns (Python) - also catches generic "is not defined" from other adapters
     if (errorMessage.includes('NameError') || errorMessage.includes('is not defined')) {
       const match = errorMessage.match(/name ['\"]?(\w+)['\"]? is not defined/i) ||
                     errorMessage.match(/['\"]?(\w+)['\"]? is not defined/i);
@@ -1426,36 +1470,48 @@ export class SessionManagerOperations extends SessionManagerData {
       };
     }
 
-    // TypeError patterns
+    // TypeError patterns (Python and JavaScript)
     if (errorMessage.includes('TypeError')) {
       return {
         category: 'TypeError',
         message: 'Type mismatch in expression',
-        suggestion: 'Check that operands are compatible types. Use type() to inspect variable types.',
+        suggestion: 'Check that operands are compatible types and the operation is valid for the given types.',
         originalError
       };
     }
 
-    // AttributeError patterns
-    if (errorMessage.includes('AttributeError') || errorMessage.includes('has no attribute')) {
-      const match = errorMessage.match(/has no attribute ['\"]?(\w+)['\"]?/i);
+    // AttributeError patterns (Python) and property access errors (JavaScript)
+    if (errorMessage.includes('AttributeError') || errorMessage.includes('has no attribute') ||
+        errorMessage.includes('Cannot read property') || errorMessage.includes('undefined is not an object')) {
+      const match = errorMessage.match(/has no attribute ['\"]?(\w+)['\"]?/i) ||
+                    errorMessage.match(/Cannot read property ['\"]?(\w+)['\"]?/i);
       const attrName = match ? match[1] : null;
       return {
         category: 'AttributeError',
-        message: attrName ? `Attribute '${attrName}' not found` : 'Attribute not found',
+        message: attrName ? `Property '${attrName}' not found` : 'Property or attribute not found',
         suggestion: attrName
-          ? `Object does not have attribute '${attrName}'. Use dir(obj) to list available attributes.`
-          : 'Use dir(object) to list available attributes.',
+          ? `Object does not have property '${attrName}'. Check the object structure with get_local_variables.`
+          : 'Use get_local_variables to inspect the object structure.',
         originalError
       };
     }
 
-    // IndexError patterns
+    // RangeError patterns (JavaScript) - similar to IndexError
+    if (errorMessage.includes('RangeError')) {
+      return {
+        category: 'RangeError',
+        message: 'Value out of range',
+        suggestion: 'Check array bounds or numeric limits before the operation.',
+        originalError
+      };
+    }
+
+    // IndexError patterns (Python)
     if (errorMessage.includes('IndexError') || errorMessage.includes('index out of range')) {
       return {
         category: 'IndexError',
         message: 'Index out of range',
-        suggestion: 'Check the length of the sequence with len() before accessing by index.',
+        suggestion: 'Check the length of the sequence before accessing by index.',
         originalError
       };
     }
@@ -1488,6 +1544,54 @@ export class SessionManagerOperations extends SessionManagerData {
         category: 'RuntimeError',
         message: 'Runtime error during evaluation',
         suggestion: 'The expression caused a runtime error. Check for recursion limits or invalid operations.',
+        originalError
+      };
+    }
+
+    // LLDB-specific error patterns (used by Zig, Rust/CodeLLDB)
+    if (errorMessage.includes('undeclared identifier') || errorMessage.includes('use of undeclared identifier')) {
+      const match = errorMessage.match(/identifier\s+['\"]?(\w+)['\"]?/i);
+      const varName = match ? match[1] : null;
+      return {
+        category: 'UndeclaredIdentifier',
+        message: varName ? `Variable '${varName}' is not declared` : 'Undeclared identifier',
+        suggestion: varName
+          ? `Check spelling of '${varName}'. Use get_local_variables to see available variables in scope.`
+          : 'Use get_local_variables to see available variables in the current scope.',
+        originalError
+      };
+    }
+
+    // LLDB "no member" errors (struct/object member access)
+    if (errorMessage.includes('no member named') || errorMessage.includes('has no member')) {
+      const match = errorMessage.match(/member\s+(?:named\s+)?['\"]?(\w+)['\"]?/i);
+      const memberName = match ? match[1] : null;
+      return {
+        category: 'NoMember',
+        message: memberName ? `Member '${memberName}' not found` : 'Member not found',
+        suggestion: memberName
+          ? `Object does not have member '${memberName}'. Use get_local_variables to inspect the object structure.`
+          : 'Use get_local_variables to inspect the object structure.',
+        originalError
+      };
+    }
+
+    // LLDB expression parsing errors
+    if (errorMessage.includes('expression failed to parse') || errorMessage.includes("couldn't execute expression")) {
+      return {
+        category: 'ExpressionParseError',
+        message: 'Expression could not be parsed',
+        suggestion: 'Check expression syntax for the target language. LLDB may not support all language constructs.',
+        originalError
+      };
+    }
+
+    // LLDB generic errors (often prefixed with "error:")
+    if (errorMessage.toLowerCase().startsWith('error:')) {
+      return {
+        category: 'LLDBError',
+        message: 'LLDB evaluation error',
+        suggestion: 'Expression evaluation failed. This may be a limitation of the debugger expression evaluator.',
         originalError
       };
     }

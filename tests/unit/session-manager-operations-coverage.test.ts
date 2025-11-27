@@ -903,7 +903,8 @@ describe('Session Manager Operations Coverage - Error Paths and Edge Cases', () 
 
       expect(result.success).toBe(false);
       expect(result.errorInfo?.category).toBe('TypeError');
-      expect(result.errorInfo?.suggestion).toContain('type()');
+      // Language-agnostic suggestion for type errors
+      expect(result.errorInfo?.suggestion).toContain('compatible types');
     });
 
     it('provides structured error for AttributeError', async () => {
@@ -917,7 +918,8 @@ describe('Session Manager Operations Coverage - Error Paths and Edge Cases', () 
       expect(result.success).toBe(false);
       expect(result.errorInfo?.category).toBe('AttributeError');
       expect(result.errorInfo?.message).toContain("'foo'");
-      expect(result.errorInfo?.suggestion).toContain('dir(');
+      // Language-agnostic suggestion for attribute errors
+      expect(result.errorInfo?.suggestion).toContain('get_local_variables');
     });
 
     it('provides structured error for KeyError', async () => {

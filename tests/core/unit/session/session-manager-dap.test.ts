@@ -119,6 +119,112 @@ describe('SessionManager - DAP Operations', () => {
         condition: 'x > 10'
       });
     });
+
+    it('should set conditionVerified=true when breakpoint with condition is verified', async () => {
+      const session = await sessionManager.createSession({
+        language: DebugLanguage.MOCK,
+        executablePath: 'python'
+      });
+
+      await sessionManager.startDebugging(session.id, 'test.py');
+      await vi.runAllTimersAsync();
+
+      // Configure mock to return verified=true for conditional breakpoint
+      dependencies.mockProxyManager.setDapRequestHandler(async (command, args) => {
+        if (command === 'setBreakpoints') {
+          return {
+            success: true,
+            body: {
+              breakpoints: args?.breakpoints?.map((bp: any) => ({
+                verified: true,
+                line: bp.line
+              })) || []
+            }
+          };
+        }
+        return { success: true };
+      });
+
+      dependencies.mockProxyManager.dapRequestCalls = [];
+
+      const bp = await sessionManager.setBreakpoint(
+        session.id,
+        'test.py',
+        25,
+        'x > 10'
+      );
+
+      expect(bp.condition).toBe('x > 10');
+      expect(bp.verified).toBe(true);
+      expect(bp.conditionVerified).toBe(true);
+      expect(bp.conditionError).toBeUndefined();
+    });
+
+    it('should set conditionVerified=false and conditionError when adapter rejects breakpoint', async () => {
+      const session = await sessionManager.createSession({
+        language: DebugLanguage.MOCK,
+        executablePath: 'python'
+      });
+
+      await sessionManager.startDebugging(session.id, 'test.py');
+      await vi.runAllTimersAsync();
+
+      // Configure mock to return verified=false with an error message
+      dependencies.mockProxyManager.setDapRequestHandler(async (command, args) => {
+        if (command === 'setBreakpoints') {
+          return {
+            success: true,
+            body: {
+              breakpoints: args?.breakpoints?.map((bp: any) => ({
+                verified: false,
+                line: bp.line,
+                message: 'Invalid condition expression'
+              })) || []
+            }
+          };
+        }
+        return { success: true };
+      });
+
+      dependencies.mockProxyManager.dapRequestCalls = [];
+
+      const bp = await sessionManager.setBreakpoint(
+        session.id,
+        'test.py',
+        25,
+        'invalid syntax here'
+      );
+
+      expect(bp.condition).toBe('invalid syntax here');
+      expect(bp.verified).toBe(false);
+      expect(bp.conditionVerified).toBe(false);
+      expect(bp.conditionError).toBe('Invalid condition expression');
+    });
+
+    it('should not set conditionVerified for breakpoints without condition', async () => {
+      const session = await sessionManager.createSession({
+        language: DebugLanguage.MOCK,
+        executablePath: 'python'
+      });
+
+      await sessionManager.startDebugging(session.id, 'test.py');
+      await vi.runAllTimersAsync();
+
+      dependencies.mockProxyManager.dapRequestCalls = [];
+
+      const bp = await sessionManager.setBreakpoint(
+        session.id,
+        'test.py',
+        25
+        // No condition provided
+      );
+
+      expect(bp.condition).toBeUndefined();
+      expect(bp.verified).toBe(true);
+      // conditionVerified should NOT be set when there's no condition
+      expect(bp.conditionVerified).toBeUndefined();
+      expect(bp.conditionError).toBeUndefined();
+    });
   });
 
   describe('Step Operations', () => {

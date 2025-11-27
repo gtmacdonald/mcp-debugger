@@ -245,7 +245,26 @@ export class MinimalDapClient extends EventEmitter {
         if (response.success) {
           pending.resolve(response);
         } else {
-          pending.reject(new Error(response.message || 'Request failed'));
+          // Extract error message from response - check multiple locations per DAP spec
+          // Some adapters put error info in 'message', others in 'body.error' or 'body.description'
+          let errorMessage = response.message;
+          if (!errorMessage && response.body) {
+            const body = response.body as Record<string, unknown>;
+            // js-debug returns error as an object: { error: { id: number, format: string, showUser: boolean } }
+            // Other adapters may return error as a string or in description/message fields
+            const errorObj = body.error;
+            if (errorObj && typeof errorObj === 'object') {
+              const errRecord = errorObj as Record<string, unknown>;
+              errorMessage = (errRecord.format as string) || (errRecord.message as string);
+            } else if (typeof errorObj === 'string') {
+              errorMessage = errorObj;
+            }
+            // Fallback to other common fields
+            if (!errorMessage) {
+              errorMessage = (body.description as string) || (body.message as string);
+            }
+          }
+          pending.reject(new Error(errorMessage || 'Request failed'));
         }
       } else {
         if (this.isDisconnectingOrDisconnected) {
