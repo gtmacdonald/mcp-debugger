@@ -448,6 +448,9 @@ Built with:
 - [Model Context Protocol](https://github.com/anthropics/model-context-protocol) by Anthropic
 - [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/) by Microsoft
 - [debugpy](https://github.com/microsoft/debugpy) for Python debugging
+- [js-debug](https://github.com/microsoft/vscode-js-debug) for JavaScript/TypeScript debugging
+- [CodeLLDB](https://github.com/vadimcn/codelldb) for Rust debugging
+- [LLVM/lldb-dap](https://lldb.llvm.org/) for Zig debugging
 
 ---
 

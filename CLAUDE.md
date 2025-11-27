@@ -287,6 +287,24 @@ packages/adapter-nodejs/
 - debugpy must be installed: `pip install debugpy`
 - The system will auto-detect Python path or use `PYTHON_PATH` env var
 
+### JavaScript/TypeScript
+- Node.js 16+ must be installed
+- Uses bundled js-debug adapter (no additional installation)
+- Supports both .js and .ts files (TypeScript via ts-node or compiled)
+
+### Rust
+- Rust toolchain must be installed (rustc, cargo)
+- CodeLLDB is vendored automatically during build
+- Build with debug symbols: `cargo build` (default profile)
+
+### Zig
+- Zig 0.11+ must be installed
+- LLVM must be installed (includes lldb-dap)
+  - macOS: `brew install llvm` and add to PATH
+  - Linux: `apt install llvm lldb`
+- Debug symbols included by default in `zig build`
+- See [Zig Setup Guide](docs/zig-setup.md) for detailed instructions
+
 ### Mock (Testing)
 - No external requirements
 - Used for testing the debug infrastructure
