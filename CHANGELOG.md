@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - _No changes yet._
 
+## [0.18.0] - 2025-11-26
+
+### Added
+- **Zig adapter (Alpha)** – debugging support for Zig programs via lldb-dap, including build integration and DWARF debug info
+- **Pause execution support** – ability to pause running debug sessions via `pause_execution` tool
+- **Conditional breakpoint integration tests** – comprehensive test coverage for conditional breakpoints across all 4 languages (Python, JavaScript, Rust, Zig)
+- **Comprehensive Zig documentation** – `docs/zig-setup.md` setup guide, `docs/zig-debugging.md` debugging guide, and `examples/zig-harness/README.md`
+- **Language-specific condition syntax documentation** – documented LLDB expression syntax requirements for Rust/Zig adapters
+
+### Improved
+- **Expression evaluation** – rich object previews with automatic property expansion, smart truncation for large results
+- **Cross-language error handling** – structured error reporting with category, message, and actionable suggestions for JS (ReferenceError/SyntaxError) and LLDB adapters (undeclared identifier)
+- **Conditional breakpoint feedback** – added `conditionVerified` and `conditionError` fields to breakpoint response for better UX
+
 ## [0.17.0] - 2025-11-22
 
 ### Added

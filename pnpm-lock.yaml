@@ -14,9 +14,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.2
         version: 1.18.1
-      '@types/pg':
-        specifier: ^8.15.6
-        version: 8.15.6
       '@types/which':
         specifier: ^3.0.4
         version: 3.0.4
@@ -47,9 +44,6 @@ importers:
       node-fetch:
         specifier: ^2.7.0
         version: 2.7.0
-      pg:
-        specifier: ^8.16.3
-        version: 8.16.3
       uuid:
         specifier: ^9.0.1
         version: 9.0.1

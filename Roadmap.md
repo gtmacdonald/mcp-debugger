@@ -26,7 +26,9 @@ Status snapshot as of **2025‑11‑26**:
 2. **Conditional breakpoints polish**
    - ✅ Server honours condition fields during dry runs
    - ✅ Conditional breakpoints verified working in Python (debugpy) and JavaScript (js-debug)
+   - ✅ Conditional breakpoints verified working in Rust (CodeLLDB) and Zig (lldb-dap)
    - ✅ Added `conditionVerified` and `conditionError` fields to breakpoint response
+   - ✅ Integration tests for conditional breakpoints across all 4 languages
    - ⏳ Pre-validation of condition syntax (some adapters only fail at runtime)
 
 ### Medium priority
@@ -44,7 +46,7 @@ Status snapshot as of **2025‑11‑26**:
 
 ## ✅ Recently Delivered
 
-- **Unreleased** – Zig adapter (Alpha), Pause execution support, Expression evaluation improvements (rich previews, truncation, structured errors), Cross-language error handling for JS/Zig adapters, Conditional breakpoint verification feedback (`conditionVerified`, `conditionError` fields)
+- **v0.18.0** – Zig adapter (Alpha), Pause execution support, Expression evaluation improvements (rich previews, truncation, structured errors), Cross-language error handling for JS/Zig adapters, Conditional breakpoint verification feedback (`conditionVerified`, `conditionError` fields), Conditional breakpoint integration tests for all 4 languages (Python, JavaScript, Rust, Zig), Comprehensive Zig debugging documentation
 - **v0.17.0** – Rust adapter backed by CodeLLDB plus richer stepping responses with inline source context
 - **v0.16.0** – First-class JavaScript adapter with TypeScript detection, js‑debug vendoring, and adapter policy orchestration
 - **v0.15.x** – Self-contained CLI bundle (npx-friendly), proxy diagnostics, Windows CI resiliency
@@ -89,6 +91,7 @@ Want to help? Start by:
 
 ## 🗓 Version History (high level)
 
+- **v0.18.0** – Zig adapter (Alpha), pause execution, conditional breakpoint verification across all languages
 - **v0.17.0** – Rust adapter (Alpha), inline source context in stepping tools
 - **v0.16.0** – JavaScript adapter, session policy orchestration, handshake instrumentation
 - **v0.15.0** – Bundled CLI distribution, Windows CI diagnostics, proxy log capture
@@ -98,4 +101,4 @@ Want to help? Start by:
 
 ---
 
-*Last updated: 2025‑11‑25*
+*Last updated: 2025‑11‑26*
