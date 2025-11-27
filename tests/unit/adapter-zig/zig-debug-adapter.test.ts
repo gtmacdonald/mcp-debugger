@@ -8,11 +8,18 @@ vi.mock('child_process', () => ({
     exec: vi.fn()
 }));
 
-vi.mock('fs', () => ({
-    existsSync: vi.fn(),
-    accessSync: vi.fn(),
-    constants: { X_OK: 1, F_OK: 0, R_OK: 4 }
-}));
+vi.mock('fs', () => {
+    const mockFs = {
+        existsSync: vi.fn(),
+        accessSync: vi.fn(),
+        mkdirSync: vi.fn(),
+        constants: { X_OK: 1, F_OK: 0, R_OK: 4 }
+    };
+    return {
+        ...mockFs,
+        default: mockFs,
+    };
+});
 
 vi.mock('fs/promises', () => ({
     stat: vi.fn(),
@@ -71,15 +78,15 @@ const setupSpawnForValidation = () => {
 };
 
 const createDependencies = () => ({
-    fileSystem: {} as unknown,
+    fileSystem: {} as any,
     logger: {
         info: vi.fn(),
         warn: vi.fn(),
         error: vi.fn(),
         debug: vi.fn()
     },
-    environment: {} as unknown,
-    processLauncher: {} as unknown,
+    environment: {} as any,
+    processLauncher: {} as any,
     networkManager: undefined
 });
 
