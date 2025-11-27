@@ -29,7 +29,7 @@ export class FileSystemImpl implements IFileSystem {
   }
 
   async readdir(path: string): Promise<string[]> {
-    return fs.readdir(path);
+    return fs.readdir(path, { encoding: 'utf-8' }) as Promise<string[]>;
   }
 
   async stat(path: string): Promise<Stats> {
