@@ -41,15 +41,15 @@ const PREVIEW_MAX_TOTAL_LENGTH = 4096;
  */
 export interface EvaluateErrorInfo {
   category:
-    // Python errors
-    | 'SyntaxError' | 'NameError' | 'TypeError' | 'AttributeError'
-    | 'IndexError' | 'KeyError' | 'ValueError' | 'RuntimeError'
-    // JavaScript errors
-    | 'ReferenceError' | 'RangeError'
-    // LLDB/native debugger errors (Zig, Rust)
-    | 'UndeclaredIdentifier' | 'NoMember' | 'ExpressionParseError' | 'LLDBError'
-    // Generic fallback
-    | 'Unknown';
+  // Python errors
+  | 'SyntaxError' | 'NameError' | 'TypeError' | 'AttributeError'
+  | 'IndexError' | 'KeyError' | 'ValueError' | 'RuntimeError'
+  // JavaScript errors
+  | 'ReferenceError' | 'RangeError'
+  // LLDB/native debugger errors (Zig, Rust)
+  | 'UndeclaredIdentifier' | 'NoMember' | 'ExpressionParseError' | 'LLDBError'
+  // Generic fallback
+  | 'Unknown';
   message: string;
   suggestion?: string;
   originalError: string;
@@ -582,7 +582,7 @@ export class SessionManagerOperations extends SessionManagerData {
 
       if (!alreadyReady) {
         // Wait for adapter to be configured or first stop event
-        const waitForReady = new Promise<void>((resolve) => {
+        const waitForReady = new Promise<void>((resolve, reject) => {
           let resolved = false;
 
           const handleStopped = () => {
@@ -606,8 +606,36 @@ export class SessionManagerOperations extends SessionManagerData {
             }
           };
 
+          const cleanup = () => {
+            session.proxyManager?.removeListener('stopped', handleStopped);
+            session.proxyManager?.removeListener('adapter-configured', handleConfigured);
+            session.proxyManager?.removeListener('exit', handleExit);
+            session.proxyManager?.removeListener('error', handleError);
+          };
+
+          const handleExit = (code: number | null, signal: string | null) => {
+            if (!resolved) {
+              resolved = true;
+              cleanup();
+              const msg = `Adapter exited prematurely with code ${code}, signal ${signal}`;
+              this.logger.error(`[SessionManager] ${msg}`);
+              reject(new Error(msg));
+            }
+          };
+
+          const handleError = (err: Error) => {
+            if (!resolved) {
+              resolved = true;
+              cleanup();
+              this.logger.error(`[SessionManager] Adapter error:`, err);
+              reject(err);
+            }
+          };
+
           session.proxyManager?.once('stopped', handleStopped);
           session.proxyManager?.once('adapter-configured', handleConfigured);
+          session.proxyManager?.once('exit', handleExit);
+          session.proxyManager?.once('error', handleError);
 
           // In case the adapter already reached the desired state before listeners were attached,
           // perform a synchronous state check to avoid waiting for an event that already fired.
@@ -617,8 +645,7 @@ export class SessionManagerOperations extends SessionManagerData {
             : currentState === SessionState.PAUSED;
           if (readyNow) {
             resolved = true;
-            session.proxyManager?.removeListener('stopped', handleStopped);
-            session.proxyManager?.removeListener('adapter-configured', handleConfigured);
+            cleanup();
             resolve();
             return;
           }
@@ -627,8 +654,7 @@ export class SessionManagerOperations extends SessionManagerData {
           setTimeout(() => {
             if (!resolved) {
               resolved = true;
-              session.proxyManager?.removeListener('stopped', handleStopped);
-              session.proxyManager?.removeListener('adapter-configured', handleConfigured);
+              cleanup();
               this.logger.warn(ErrorMessages.adapterReadyTimeout(30));
               resolve();
             }
@@ -1317,8 +1343,8 @@ export class SessionManagerOperations extends SessionManagerData {
     if (type) {
       const lowerType = type.toLowerCase();
       if (lowerType.includes('list') || lowerType.includes('array') ||
-          lowerType.includes('tuple') || lowerType.includes('set') ||
-          lowerType === '[]' || lowerType.match(/^\[.*\]$/)) {
+        lowerType.includes('tuple') || lowerType.includes('set') ||
+        lowerType === '[]' || lowerType.match(/^\[.*\]$/)) {
         return true;
       }
     }
@@ -1458,7 +1484,7 @@ export class SessionManagerOperations extends SessionManagerData {
     // NameError patterns (Python) - also catches generic "is not defined" from other adapters
     if (errorMessage.includes('NameError') || errorMessage.includes('is not defined')) {
       const match = errorMessage.match(/name ['\"]?(\w+)['\"]? is not defined/i) ||
-                    errorMessage.match(/['\"]?(\w+)['\"]? is not defined/i);
+        errorMessage.match(/['\"]?(\w+)['\"]? is not defined/i);
       const varName = match ? match[1] : null;
       return {
         category: 'NameError',
@@ -1482,9 +1508,9 @@ export class SessionManagerOperations extends SessionManagerData {
 
     // AttributeError patterns (Python) and property access errors (JavaScript)
     if (errorMessage.includes('AttributeError') || errorMessage.includes('has no attribute') ||
-        errorMessage.includes('Cannot read property') || errorMessage.includes('undefined is not an object')) {
+      errorMessage.includes('Cannot read property') || errorMessage.includes('undefined is not an object')) {
       const match = errorMessage.match(/has no attribute ['\"]?(\w+)['\"]?/i) ||
-                    errorMessage.match(/Cannot read property ['\"]?(\w+)['\"]?/i);
+        errorMessage.match(/Cannot read property ['\"]?(\w+)['\"]?/i);
       const attrName = match ? match[1] : null;
       return {
         category: 'AttributeError',
