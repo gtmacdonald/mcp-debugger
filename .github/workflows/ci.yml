@@ -48,6 +48,11 @@ jobs:
     - name: Build project
       run: pnpm run build:ci
     
+    - name: Build Rust example
+      run: |
+        cd examples/rust/hello_world
+        cargo build
+    
     - name: Run linting
       run: pnpm run lint
     

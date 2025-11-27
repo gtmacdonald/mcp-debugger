@@ -60,6 +60,11 @@ jobs:
     - name: Build project
       run: pnpm run build
     
+    - name: Build Rust example
+      run: |
+        cd examples/rust/hello_world
+        cargo build
+
     - name: Run tests
       run: pnpm run test:ci-no-python
 

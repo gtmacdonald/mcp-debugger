@@ -358,6 +358,12 @@ describe('ZigAdapter', () => {
         const paths = adapter.getExecutableSearchPaths();
 
         expect(paths.length).toBeGreaterThan(0);
-        expect(paths.some(p => p.includes('homebrew'))).toBe(true);
+
+        // Only check for homebrew paths on macOS
+        if (process.platform === 'darwin') {
+            expect(paths.some(p => p.includes('homebrew') || p.includes('/usr/local/bin'))).toBe(true);
+        } else if (process.platform === 'linux') {
+            expect(paths.some(p => p.includes('/usr/bin'))).toBe(true);
+        }
     });
 });
