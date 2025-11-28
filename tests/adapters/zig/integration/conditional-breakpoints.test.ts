@@ -31,7 +31,12 @@ function checkLldbDapAvailable(): { available: boolean; path?: string; version?:
     '/usr/local/opt/llvm/bin/lldb-dap',
     '/opt/homebrew/bin/lldb-dap',
     '/usr/local/bin/lldb-dap',
-    '/usr/bin/lldb-dap'
+    '/usr/bin/lldb-dap',
+    // Ubuntu LLVM paths (version varies)
+    '/usr/lib/llvm-18/bin/lldb-dap',
+    '/usr/lib/llvm-17/bin/lldb-dap',
+    '/usr/lib/llvm-16/bin/lldb-dap',
+    '/usr/lib/llvm-15/bin/lldb-dap'
   ];
 
   for (const lldbPath of searchPaths) {

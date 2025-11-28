@@ -88,6 +88,18 @@ function checkCodeLLDBAvailable(): { available: boolean; path?: string } {
   return { available: false };
 }
 
+/**
+ * Check if rustc is available (required for CodeLLDB language support)
+ */
+function checkRustcAvailable(): boolean {
+  try {
+    const result = spawnSync('rustc', ['--version'], { timeout: 5000, stdio: 'pipe' });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
 async function startTestServer(): Promise<void> {
   const serverScriptPath = path.resolve(currentDirName, '../../../../dist/index.js');
   console.log(`[Test Setup] Server script path: ${serverScriptPath}`);
@@ -191,6 +203,7 @@ describe('Rust Conditional Breakpoint Integration @requires-codelldb', () => {
   const breakpointLine = 37; // Line: let loop_value = i * 2;
 
   const codelldbCheck = checkCodeLLDBAvailable();
+  const rustcAvailable = checkRustcAvailable();
 
   beforeAll(async () => {
     if (!codelldbCheck.available) {
@@ -199,6 +212,15 @@ describe('Rust Conditional Breakpoint Integration @requires-codelldb', () => {
       return;
     }
     console.log(`[Test] CodeLLDB available at: ${codelldbCheck.path}`);
+
+    // Check if rustc is available (required for CodeLLDB language support)
+    if (!rustcAvailable) {
+      console.log('[Test] Skipping Rust tests - rustc not found in PATH');
+      console.log('[Test] CodeLLDB requires rustc for Rust language support');
+      codelldbCheck.available = false;
+      return;
+    }
+    console.log('[Test] rustc available');
 
     // Verify binary exists
     if (!fs.existsSync(binaryPath)) {

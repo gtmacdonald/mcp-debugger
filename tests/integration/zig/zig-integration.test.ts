@@ -40,7 +40,12 @@ describe('Zig Adapter Integration', () => {
         const lldbDapPaths = [
             '/opt/homebrew/opt/llvm/bin/lldb-dap',
             '/usr/local/opt/llvm/bin/lldb-dap',
-            '/usr/bin/lldb-dap'
+            '/usr/bin/lldb-dap',
+            // Ubuntu LLVM paths (version varies)
+            '/usr/lib/llvm-18/bin/lldb-dap',
+            '/usr/lib/llvm-17/bin/lldb-dap',
+            '/usr/lib/llvm-16/bin/lldb-dap',
+            '/usr/lib/llvm-15/bin/lldb-dap'
         ];
 
         lldbDapPath = lldbDapPaths.find(p => fs.existsSync(p));
