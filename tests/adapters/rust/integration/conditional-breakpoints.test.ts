@@ -34,7 +34,17 @@ function checkCodeLLDBAvailable(): { available: boolean; path?: string } {
 
   // Check vendored CodeLLDB in packages/adapter-rust/vendor
   const arch = process.arch;
-  const platformDir = arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
+  const platform = process.platform;
+
+  let platformDir = '';
+  if (platform === 'darwin') {
+    platformDir = arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
+  } else if (platform === 'linux') {
+    platformDir = arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
+  } else if (platform === 'win32') {
+    platformDir = 'win32-x64';
+  }
+
   const vendoredPath = path.resolve(currentDirName, '../../../../packages/adapter-rust/vendor/codelldb', platformDir, 'adapter', 'codelldb');
   if (fs.existsSync(vendoredPath)) {
     return { available: true, path: vendoredPath };
@@ -264,6 +274,9 @@ describe('Rust Conditional Breakpoint Integration @requires-codelldb', () => {
         }
       })
     );
+    if (!startResult.success) {
+      console.error('❌ start_debugging failed:', JSON.stringify(startResult, null, 2));
+    }
     expect(startResult.success).toBe(true);
     console.log('[Test] Started debugging, waiting for breakpoint...');
 

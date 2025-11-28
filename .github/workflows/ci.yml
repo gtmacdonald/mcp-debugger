@@ -41,7 +41,24 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install debugpy
-    
+
+    - name: Install LLVM and lldb-dap (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y llvm lldb
+        # Verify lldb-dap is available
+        which lldb-dap || echo "lldb-dap not in PATH, checking /usr/bin"
+        ls -la /usr/bin/lldb* || true
+        # Add to PATH if needed
+        echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH || true
+
+    - name: Install Zig (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      uses: goto-bus-stop/setup-zig@v2
+      with:
+        version: 0.13.0
+
     - name: Install Node dependencies
       run: pnpm install --frozen-lockfile
     
@@ -52,7 +69,22 @@ jobs:
       run: |
         cd examples/rust/hello_world
         cargo build
-    
+
+    - name: Build Zig example (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd examples/zig-harness
+        zig build
+        ls -la zig-out/bin/ || true
+
+    - name: Verify debug adapters (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        echo "=== Checking CodeLLDB ==="
+        ls -la packages/adapter-rust/vendor/codelldb/linux-x64/adapter/ 2>/dev/null || echo "CodeLLDB not vendored yet"
+        echo "=== Checking lldb-dap ==="
+        which lldb-dap || ls -la /usr/bin/lldb-dap* || echo "lldb-dap not found"
+
     - name: Run linting
       run: pnpm run lint
     
