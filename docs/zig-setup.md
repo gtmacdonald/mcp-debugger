@@ -245,7 +245,7 @@ dwarfdump --debug-info zig-out/bin/your-program | head -50
 **Symptom**: Strange behavior, crashes, or incompatibilities
 
 **Solution**:
-- Ensure Zig 0.11.0 or later: `zig version`
+- Ensure Zig 0.14.0 or later: `zig version`
 - Update Zig: `brew upgrade zig` (macOS) or download latest from ziglang.org
 
 ## Example Project

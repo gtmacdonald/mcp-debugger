@@ -77,7 +77,7 @@ This project is designed for testing:
 
 ## Prerequisites
 
-- Zig 0.11+ (`zig version`)
+- Zig 0.14+ (`zig version`)
 - LLVM with lldb-dap (`lldb-dap --version`)
 
 See [Zig Setup Guide](../../docs/zig-setup.md) for installation instructions.

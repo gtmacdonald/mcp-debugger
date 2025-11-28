@@ -298,7 +298,7 @@ packages/adapter-nodejs/
 - Build with debug symbols: `cargo build` (default profile)
 
 ### Zig
-- Zig 0.11+ must be installed
+- Zig 0.14+ must be installed
 - LLVM must be installed (includes lldb-dap)
   - macOS: `brew install llvm` and add to PATH
   - Linux: `apt install llvm lldb`
